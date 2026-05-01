@@ -25,6 +25,7 @@ x-airflow-common: &airflow-common
     - ./logs:/opt/airflow/logs
     - ./dbt_project:/opt/airflow/dbt_project
     - ./ingestion:/opt/airflow/ingestion
+    - ./seeds:/opt/airflow/seeds
   depends_on:
     airflow-db:
       condition: service_healthy
