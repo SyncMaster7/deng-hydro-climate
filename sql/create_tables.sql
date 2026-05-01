@@ -32,11 +32,11 @@ CREATE TABLE IF NOT EXISTS staging.hydro_raw (
 );
 
 -- ---------------------------------------------------------------------------
--- staging.climate_raw
--- Raw climate observations from f_kliima_tund API
--- One row per station + timestamp + parameter (long format)
+-- staging.meteo_raw
+-- Raw meteorological observations from f_kliima_tund API
+-- One row per station + timestamp + element (long format)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS staging.climate_raw (
+CREATE TABLE IF NOT EXISTS staging.meteo_raw (
     id              BIGSERIAL PRIMARY KEY,
     jaam_kood       TEXT NOT NULL,
     jaam_nimi       TEXT,
@@ -70,15 +70,53 @@ CREATE TABLE IF NOT EXISTS staging.etl_log (
 );
 
 -- ---------------------------------------------------------------------------
--- dim_stations
--- Station reference data loaded from stations.csv (seed DAG)
--- Lives outside staging — it is a dimension, not raw data
+-- public.dim_hydrometric_stations
+-- Hydrometric station reference data loaded from hydrometric_stations.csv
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS dim_stations (
+CREATE TABLE IF NOT EXISTS public.dim_hydrometric_stations (
+    id                      BIGSERIAL PRIMARY KEY,
+    station_code            INTEGER NOT NULL UNIQUE,
+    station_category        TEXT NOT NULL,
+    station_name            TEXT NOT NULL,
+    station_fullname        TEXT,
+    water_body              TEXT,
+    catchment_name          TEXT,
+    catchment_size_km2      NUMERIC,
+    distance_from_mouth_km  NUMERIC,
+    station_altitude_msl_m  NUMERIC,
+    latitude                NUMERIC NOT NULL,
+    longitude               NUMERIC NOT NULL,
+    is_active               BOOLEAN NOT NULL DEFAULT true,
+    loaded_at               TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ---------------------------------------------------------------------------
+-- public.dim_meteorological_stations
+-- Meteorological station reference data loaded from meteorological_stations.csv
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.dim_meteorological_stations (
+    id               BIGSERIAL PRIMARY KEY,
+    station_code     TEXT NOT NULL UNIQUE,
+    station_category TEXT NOT NULL,
+    station_name     TEXT NOT NULL,
+    latitude         NUMERIC NOT NULL,
+    longitude        NUMERIC NOT NULL,
+    altitude_m       NUMERIC,
+    is_active        BOOLEAN NOT NULL DEFAULT true,
+    loaded_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ---------------------------------------------------------------------------
+-- public.dim_station_proximity
+-- Top 3 nearest meteorological stations per hydrometric station
+-- Loaded from station_proximity.csv
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.dim_station_proximity (
     id                  BIGSERIAL PRIMARY KEY,
-    station_code        TEXT NOT NULL UNIQUE,
-    station_name        TEXT NOT NULL,
-    station_category    TEXT NOT NULL,
-    is_active           BOOLEAN NOT NULL DEFAULT true,
-    loaded_at           TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    hydro_station_code  INTEGER NOT NULL,
+    meteo_station_code  TEXT NOT NULL,
+    distance_km         NUMERIC NOT NULL,
+    proximity_rank      INTEGER NOT NULL CHECK (proximity_rank BETWEEN 1 AND 3),
+    loaded_at           TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE (hydro_station_code, proximity_rank)
 );
