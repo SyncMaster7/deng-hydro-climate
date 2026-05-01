@@ -1,0 +1,77 @@
+station_code,station_category,station_name,station_fullname,water_body,catchment_name,catchment_size_km2,distance_from_mouth_km,latitude,longitude,is_active
+41137,monitoring,Aesoo,Aesoo hüdromeetriajaam,Navesti,Pärnu jõgi,1049.0,14.0,58.515303,25.061826,true
+41061,monitoring,Ahja,Ahja hüdromeetriajaam,Ahja j.,Emajõgi,897.0,25.6,58.209401,27.112593,true
+41163,monitoring,Alajõe,Alajõe hüdromeetriajaam,Alajõgi,Alajõgi,137.0,6.6,59.030896,27.39296,true
+41080,monitoring,Arbavere,Arbavere hüdromeetriajaam,Loobu j.,Loobu jõgi,246.0,32.8,59.440044,25.963534,true
+41183,monitoring,Audru,Audru hüdromeetriajaam,Audru j.,Audru jõgi,322.0,11.7,58.423455,24.318862,true
+41159,monitoring,Elu,Elu hüdromeetriajaam,Leisi j.,Leisi jõgi,52.6,8.7,58.51293,22.697379,true
+41058,monitoring,Elva,Elva hüdromeetriajaam,Elva j.,Emajõgi,231.0,32.7,58.211619,26.434671,true
+41103,monitoring,Hüüru,Hüüru hüdromeetriajaam,Vääna j.,Vääna jõgi,202.0,28.8,59.380265,24.534933,true
+41174,monitoring,Kaansoo,Kaansoo hüdromeetriajaam,Saarjõgi,Pärnu jõgi,178.0,1.0,58.577203,25.221699,true
+41112,monitoring,Kasari,Kasari hüdromeetriajaam,Kasari j.,Kasari jõgi,2642.0,19.6,58.726634,23.99693,true
+41087,monitoring,Kehra,Kehra hüdromeetriajaam,Jägala j.,Jägala jõgi,912.0,26.2,59.344362,25.340421,true
+41107,monitoring,Keila,Keila hüdromeetriajaam,Keila j.,Keila jõgi,636.0,17.7,59.308791,24.434706,true
+41192,monitoring,Kirumpää,Kirumpää hüdromeetriajaam,Võhandu j.,Võhandu jõgi,585.0,91.1,57.866022,26.993284,true
+41157,monitoring,Kloostrimetsa,Kloostrimetsa hüdromeetriajaam,Pirita j.,Pirita jõgi,829.0,5.1,59.466291,24.879519,true
+41116,monitoring,Konuvere,Konuvere hüdromeetriajaam,Vigala j.,Kasari jõgi,584.0,28.3,58.807783,24.412884,true
+41015,monitoring,Korela,Korela hüdromeetriajaam,Piusa,Piusa jõgi,744.0,14.4,57.88534,27.726254,true
+41063,monitoring,Kääpa,Kääpa hüdromeetriajaam,Kääpa j.,Kääpa jõgi,264.0,11.3,58.700695,26.848988,true
+41197,monitoring,Laadi,Laadi hüdromeetriajaam,Reiu,Pärnu jõgi,544.0,14.6,58.267446,24.646768,true
+41154,monitoring,Luguse,Luguse hüdromeetriajaam,Luguse j.,Luguse jõgi,98.2,2.0,58.81026,22.712464,true
+41074,monitoring,Lüganuse,Lüganuse hüdromeetriajaam,Purtse,Purtse jõgi,785.0,8.2,59.38386,27.039066,true
+41200,monitoring,Narva karjäär,Narva-Karjääri hüdromeetriajaam,Mustajõgi (Kirjaku pkr.),Narva jõgi,294.0,6.8,59.267222,27.857163,true
+41010,monitoring,Narva linn,Narva linn hüdromeetriajaam,Narva,Narva jõgi,56047.0,14.1,59.382752,28.206653,true
+41198,monitoring,Nurme,Nurme hüdromeetriajaam,Sauga,Pärnu jõgi,550.0,10.1,58.446319,24.497713,true
+41127,monitoring,Oore,Oore hüdromeetriajaam,Pärnu,Pärnu jõgi,5131.0,25.8,58.463253,24.767669,true
+41097,monitoring,Pajupea,Pajupea hüdromeetriajaam,Leivajõgi,Pirita jõgi,84.0,2.4,59.380909,24.968918,true
+41175,monitoring,Pajusi,Pajusi hüdromeetriajaam,Põltsamaa,Emajõgi,1082.0,47.7,58.703248,25.927792,true
+41085,monitoring,Pudisoo,Pudissoo hüdromeetriajaam,Pudisoo,Pudisoo jõgi,124.0,6.7,59.508708,25.594639,true
+41131,monitoring,Põhjaka I,Põhjaka hüdromeetriajaam,Esna j.,Pärnu jõgi,196.0,8.4,58.892222,25.669553,true
+41132,monitoring,Põhjaka II,Põhjaka II hüdromeetriajaam,Särgvere pkr.,Pärnu jõgi,7.7,1.0,58.889139,25.676698,true
+41022,monitoring,Rannu-Jõesuu,Rannu-Jõesuu hüdromeetriajaam,Emajõgi,Emajõgi,3366.0,99.4,58.385461,26.134033,true
+41184,monitoring,Reola,Reola hüdromeetriajaam,Porijõgi,Emajõgi,241.0,10.2,58.273392,26.742114,true
+41140,monitoring,Riisa,Riisa hüdromeetriajaam,Halliste j.,Pärnu jõgi,1881.0,5.2,58.479727,24.994434,true
+41065,monitoring,Roostoja,Roostoja hüdromeetriajaam,Rannapungerja,Rannapungerja jõgi,319.0,12.7,59.023744,27.105679,true
+41019,monitoring,Räpina,Räpina hüdromeetriajaam,Võhandu j.,Võhandu jõgi,1132.0,12.2,58.095585,27.454581,true
+41202,monitoring,Separa,Separa hüdromeetriajaam,Avijõgi,Avijõgi,388.0,4.1,58.966152,27.036676,true
+41077,monitoring,Sämi,Sämi hüdromeetriajaam,Kunda j.,Kunda jõgi,421.0,24.6,59.373078,26.582772,true
+41125,monitoring,Särevere,Särevere hüdromeetriajaam,Pärnu,Pärnu jõgi,572.0,101.8,58.788998,25.42111,true
+41195,monitoring,Taheva,Taheva hüdromeetriajaam,Mustjõgi,Mustjõgi,1766.0,4.4,57.598466,26.349383,true
+41126,monitoring,Tahkuse,Tahkuse hüdromeetriajaam,Pärnu,Pärnu jõgi,2047.0,41.4,58.518491,24.915769,true
+41025,monitoring,Tartu,Tartu hüdromeetriajaam,Emajõgi,Emajõgi,7849.0,41.5,58.380022,26.726181,true
+41199,monitoring,Tarvastu,Tarvastu hüdromeetriajaam,Tarvastu,Emajõgi,83.3,8.6,58.228741,25.884369,true
+41193,monitoring,Toila-Oru,Toila-Oru hüdromeetriajaam,Pühajõgi,Pühajõgi,215.0,0.8,59.423112,27.530023,true
+41133,monitoring,Tori,Tori hüdromeetriajaam,Prandi,Pärnu jõgi,284.0,5.0,58.799416,25.476489,true
+41066,monitoring,Tudulinna,Tudulinna hüdromeetriajaam,Tagajõgi,Rannapungerja jõgi,240.0,3.8,59.036109,27.088872,true
+41067,monitoring,Tõlliste,Tõlliste hüdromeetriajaam,Väike Emajõgi,Emajõgi,1045.0,37.4,57.851069,26.132519,true
+41069,monitoring,Tõrva,Tõrva hüdromeetriajaam,Õhne j.,Emajõgi,272.0,39.3,58.003807,25.92112,true
+41028,monitoring,Tõrve,Tõrve hüdromeetriajaam,Pedja,Emajõgi,739.0,46.6,58.602486,26.374895,true
+41070,monitoring,Tänassilma,Tänassilma hüdromeetriajaam,Tänassilma j.,Emajõgi,307.0,17.5,58.394902,25.822117,true
+41156,monitoring,Uue-Lõve,Uue-Lõve hüdromeetriajaam,Lõve j.,Lõve jõgi,143.0,2.9,58.356544,22.834082,true
+41117,monitoring,Valgu,Valgu hüdromeetriajaam,Velise j.,Kasari jõgi,121.0,42.0,58.817888,24.645014,true
+41082,monitoring,Vanaküla,Vanaküla hüdromeetriajaam,Valgejõgi,Valgejõgi,308.0,27.2,59.467783,25.789245,true
+41201,monitoring,Varangu,Varangu hüdromeetriajaam,Selja,Seljajõgi,376.0,18.2,59.472221,26.351556,true
+41001,monitoring,Vasknarva,Vasknarva hüdromeetriajaam,Narva,Vääna jõgi,47807.0,72.1,59.001003,27.740386,true
+41110,monitoring,Vihterpalu,Vihterpalu hüdromeetriajaam,Vihterpalu j.,Vihterpalu jõgi,478.0,2.6,59.25211,23.866549,true
+41128,monitoring,Vodja,Vodja hüdromeetriajaam,Vodja j.,Pärnu jõgi,71.5,7.1,58.938982,25.644459,true
+41905,water_level,Kulgu sadam,Kulgu sadam hüdromeetriajaam,Narva veehoidla,Narva jõgi,,,59.343576,28.172605,true
+41203,water_level,Kuningaküla,Kuningaküla hüdromeetriajaam,Narva,Narva jõgi,47982.0,56.2,59.124454,27.803936,true
+41920,water_level,Mehikoorma,Mehikoorma hüdromeetriajaam,Peipsi,,,,58.237748,27.474825,true
+41925,water_level,Mustvee,Mustvee hüdromeetriajaam,Peipsi,,,,58.846978,26.952581,true
+41922,water_level,Praaga,Praaga hüdromeetriajaam,Peipsi,Emajõgi,,,58.436297,27.235444,true
+41191,water_level,Roosisaare,Roosissaare hüdromeetriajaam,Tamula,Võhandu jõgi,,,57.84683,26.980847,true
+86101,coastal,Dirhami,Dirhami rannikumere veetasemejaam,,,,,59.211347,23.500702,true
+86110,coastal,Haapsalu,Haapsalu rannikumere veetasemejaam,,,,,58.958024,23.527396,true
+26120,coastal,Heltermaa,Heltermaa rannikumere veetasemejaam,,,,,58.866406,23.04687,true
+86031,coastal,Häädemeeste,Häädemeeste rannikumere veetasemejaam,,,,,58.036677,24.45801,true
+26045,coastal,Kunda,Kunda rannikumere veetasemejaam,Soome laht,,,,59.526419,26.543928,true
+86087,coastal,Loksa,Loksa rannikumere veetasemejaam,,,,,59.583513,25.699016,true
+86120,coastal,Mõntu,Mõntu rannikumere veetasemejaam,,,,,57.949496,22.124243,true
+41801,coastal,Narva-Jõesuu,Narva-Jõesuu rannikumere veetasemejaam,Soome laht,,,,59.468375,28.042447,true
+86100,coastal,Paldiski,Paldiski rannikumere veetasemejaam,,,,,59.349799,24.04756,true
+86094,coastal,Pirita,Pirita rannikumere veetasemejaam,,,,,59.46887,24.820797,true
+41803,coastal,Pärnu,Pärnu rannikujaam,,,,,58.381932,24.477156,true
+26115,coastal,Ristna,Ristna rannikujaam,,,,,58.920824,22.056593,true
+26215,coastal,Roomassaare,Roomassaare rannikumere veetasemejaam,,,,,58.216361,22.505609,true
+26227,coastal,Ruhnu,Ruhnu rannikujaam,,,,,57.781036,23.27048,true
+26128,coastal,Virtsu,Virtsu rannikujaam,,,,,58.574836,23.510173,true
