@@ -73,7 +73,7 @@ def seed_stations():
         """
 
         rows = 0
-        with open(f"{SEEDS_PATH}/hydrometric_stations.csv", newline="", encoding="utf-8") as f:
+        with open(f"{SEEDS_PATH}/hydrometric_stations.csv", newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 cursor.execute(sql, (
@@ -130,7 +130,7 @@ def seed_stations():
         """
 
         rows = 0
-        with open(f"{SEEDS_PATH}/meteorological_stations.csv", newline="", encoding="utf-8") as f:
+        with open(f"{SEEDS_PATH}/meteorological_stations.csv", newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 cursor.execute(sql, (
