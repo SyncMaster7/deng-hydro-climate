@@ -1,0 +1,171 @@
+# deng-hydro-climate — docker-compose.yml
+# Airflow 3.2.1 + dbt-postgres + pgduckdb analytics DB
+# All passwords and secrets via .env — never hardcode here
+
+x-airflow-common: &airflow-common
+  build: ./docker/airflow
+  restart: unless-stopped
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-db:5432/${AIRFLOW_DB_NAME}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
+    AIRFLOW_CONN_ANALYTICS_DB: postgresql+psycopg2://${ANALYTICS_DB_USER}:${ANALYTICS_DB_PASSWORD}@analytics-db:5432/${ANALYTICS_DB_NAME}
+    DBT_ANALYTICS_HOST: analytics-db
+    DBT_ANALYTICS_PORT: "5432"
+    DBT_ANALYTICS_USER: ${ANALYTICS_DB_USER}
+    DBT_ANALYTICS_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+    DBT_ANALYTICS_DB: ${ANALYTICS_DB_NAME}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./dbt_project:/opt/airflow/dbt_project
+    - ./ingestion:/opt/airflow/ingestion
+  depends_on:
+    airflow-db:
+      condition: service_healthy
+  user: "${AIRFLOW_UID:-50000}:0"
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Analytics database — application data (hydro + climate)
+  # ---------------------------------------------------------------------------
+  analytics-db:
+    image: pgduckdb/pgduckdb:16-v1.1.1
+    container_name: deng-analytics-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ANALYTICS_DB_USER}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+      POSTGRES_DB: ${ANALYTICS_DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - /data/volumes/postgres_data:/var/lib/postgresql/data
+      - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER} -d ${ANALYTICS_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Airflow metadata database — internal Airflow state only
+  # ---------------------------------------------------------------------------
+  airflow-db:
+    image: postgres:16
+    container_name: deng-airflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+    ports:
+      - "5433:5432"
+    volumes:
+      - /data/volumes/airflow_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_DB_USER} -d ${AIRFLOW_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Airflow init — runs once to migrate DB and create admin user
+  # ---------------------------------------------------------------------------
+  airflow-init:
+    <<: *airflow-common
+    container_name: deng-airflow-init
+    restart: "no"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username ${AIRFLOW_ADMIN_USER} \
+          --password ${AIRFLOW_ADMIN_PASSWORD} \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email ${AIRFLOW_ADMIN_EMAIL} || true
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Airflow API server — UI + REST API
+  # ---------------------------------------------------------------------------
+  airflow-apiserver:
+    <<: *airflow-common
+    container_name: deng-airflow-apiserver
+    command: api-server
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ---------------------------------------------------------------------------
+  # Airflow scheduler — evaluates DAGs and triggers tasks
+  # ---------------------------------------------------------------------------
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: deng-airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--local"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ---------------------------------------------------------------------------
+  # Airflow DAG processor — parses DAG files
+  # ---------------------------------------------------------------------------
+  airflow-dag-processor:
+    <<: *airflow-common
+    container_name: deng-airflow-dag-processor
+    command: dag-processor
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ---------------------------------------------------------------------------
+  # dbt — dedicated container for interactive dbt development
+  # stays running so you can: docker compose exec dbt dbt run
+  # ---------------------------------------------------------------------------
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
+    container_name: deng-dbt
+    restart: unless-stopped
+    entrypoint: ["tail", "-f", "/dev/null"]
+    working_dir: /dbt
+    environment:
+      DBT_ANALYTICS_HOST: analytics-db
+      DBT_ANALYTICS_PORT: "5432"
+      DBT_ANALYTICS_USER: ${ANALYTICS_DB_USER}
+      DBT_ANALYTICS_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+      DBT_ANALYTICS_DB: ${ANALYTICS_DB_NAME}
+    volumes:
+      - ./dbt_project:/dbt
+    depends_on:
+      analytics-db:
+        condition: service_healthy
