@@ -48,9 +48,7 @@ CREATE TABLE IF NOT EXISTS staging.climate_raw (
     element_kood    TEXT NOT NULL,
     element_nimi    TEXT,
     element_yhik    TEXT,
-    observation_ts  TIMESTAMP WITH TIME ZONE GENERATED ALWAYS AS (
-                        make_timestamptz(aasta, kuu, paev, tund, 0, 0, 'UTC')
-                    ) STORED,
+    observation_ts  TIMESTAMP WITH TIME ZONE,
     loaded_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (jaam_kood, aasta, kuu, paev, tund, element_kood)
 );
