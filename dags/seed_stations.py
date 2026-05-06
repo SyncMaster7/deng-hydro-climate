@@ -20,7 +20,6 @@ from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk import Asset
 
-sys.path.insert(0, "/opt/airflow")
 from ingestion.haversine import haversine_km
 
 log = logging.getLogger(__name__)
@@ -46,6 +45,7 @@ def seed_stations():
 
     # -------------------------------------------------------------------------
     # Task 1a — Hydrometric stations (parallel)
+    # Returns count of rows actually inserted or updated (0 if nothing changed)
     # -------------------------------------------------------------------------
     @task(outlets=[asset_hydrometric_stations])
     def load_hydrometric_stations() -> int:
@@ -82,10 +82,23 @@ def seed_stations():
                 latitude               = EXCLUDED.latitude,
                 longitude              = EXCLUDED.longitude,
                 is_active              = EXCLUDED.is_active,
-                loaded_at              = NOW();
+                loaded_at              = NOW()
+            WHERE (
+                EXCLUDED.station_category       IS DISTINCT FROM ref.hydrometric_stations.station_category OR
+                EXCLUDED.station_name           IS DISTINCT FROM ref.hydrometric_stations.station_name OR
+                EXCLUDED.station_fullname       IS DISTINCT FROM ref.hydrometric_stations.station_fullname OR
+                EXCLUDED.water_body             IS DISTINCT FROM ref.hydrometric_stations.water_body OR
+                EXCLUDED.catchment_name         IS DISTINCT FROM ref.hydrometric_stations.catchment_name OR
+                EXCLUDED.catchment_size_km2     IS DISTINCT FROM ref.hydrometric_stations.catchment_size_km2 OR
+                EXCLUDED.distance_from_mouth_km IS DISTINCT FROM ref.hydrometric_stations.distance_from_mouth_km OR
+                EXCLUDED.station_altitude_msl_m IS DISTINCT FROM ref.hydrometric_stations.station_altitude_msl_m OR
+                EXCLUDED.latitude               IS DISTINCT FROM ref.hydrometric_stations.latitude OR
+                EXCLUDED.longitude              IS DISTINCT FROM ref.hydrometric_stations.longitude OR
+                EXCLUDED.is_active              IS DISTINCT FROM ref.hydrometric_stations.is_active
+            );
         """
 
-        rows = 0
+        changed = 0
         with open(f"{SEEDS_PATH}/hydrometric_stations.csv", newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -103,16 +116,17 @@ def seed_stations():
                     float(row["longitude"]),
                     row["is_active"].strip().lower() == "true",
                 ))
-                rows += 1
+                changed += cursor.rowcount  # 1 if inserted or updated, 0 if unchanged
 
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into ref.hydrometric_stations", rows)
-        return rows
+        log.info("ref.hydrometric_stations: %d rows changed", changed)
+        return changed
 
     # -------------------------------------------------------------------------
     # Task 1b — Meteorological stations (parallel)
+    # Returns count of rows actually inserted or updated (0 if nothing changed)
     # -------------------------------------------------------------------------
     @task(outlets=[asset_meteorological_stations])
     def load_meteorological_stations() -> int:
@@ -139,10 +153,18 @@ def seed_stations():
                 longitude        = EXCLUDED.longitude,
                 altitude_m       = EXCLUDED.altitude_m,
                 is_active        = EXCLUDED.is_active,
-                loaded_at        = NOW();
+                loaded_at        = NOW()
+            WHERE (
+                EXCLUDED.station_category IS DISTINCT FROM ref.meteorological_stations.station_category OR
+                EXCLUDED.station_name     IS DISTINCT FROM ref.meteorological_stations.station_name OR
+                EXCLUDED.latitude         IS DISTINCT FROM ref.meteorological_stations.latitude OR
+                EXCLUDED.longitude        IS DISTINCT FROM ref.meteorological_stations.longitude OR
+                EXCLUDED.altitude_m       IS DISTINCT FROM ref.meteorological_stations.altitude_m OR
+                EXCLUDED.is_active        IS DISTINCT FROM ref.meteorological_stations.is_active
+            );
         """
 
-        rows = 0
+        changed = 0
         with open(f"{SEEDS_PATH}/meteorological_stations.csv", newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -155,17 +177,17 @@ def seed_stations():
                     float(row["altitude_m"]) if row["altitude_m"] else None,
                     row["is_active"].strip().lower() == "true",
                 ))
-                rows += 1
+                changed += cursor.rowcount  # 1 if inserted or updated, 0 if unchanged
 
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into ref.meteorological_stations", rows)
-        return rows
+        log.info("ref.meteorological_stations: %d rows changed", changed)
+        return changed
 
     # -------------------------------------------------------------------------
     # Task 2 — Calculate proximity matrix (haversine, conditional)
-    # Runs if either load task touched rows OR proximity table is empty
+    # Runs if either load task changed rows OR proximity table is empty
     # -------------------------------------------------------------------------
     @task(outlets=[asset_station_proximity])
     def calculate_proximity(hydro_count: int, meteo_count: int) -> int:
