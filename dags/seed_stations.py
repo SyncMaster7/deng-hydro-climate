@@ -41,7 +41,7 @@ def seed_stations():
         cursor = conn.cursor()
 
         sql = """
-            INSERT INTO public.dim_hydrometric_stations (
+            INSERT INTO ref.hydrometric_stations (
                 station_code,
                 station_category,
                 station_name,
@@ -95,7 +95,7 @@ def seed_stations():
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into dim_hydrometric_stations", rows)
+        log.info("Upserted %d rows into hydrometric_stations", rows)
         return rows
 
     # -------------------------------------------------------------------------
@@ -108,7 +108,7 @@ def seed_stations():
         cursor = conn.cursor()
 
         sql = """
-            INSERT INTO public.dim_meteorological_stations (
+            INSERT INTO ref.meteorological_stations (
                 station_code,
                 station_category,
                 station_name,
@@ -147,7 +147,7 @@ def seed_stations():
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into dim_meteorological_stations", rows)
+        log.info("Upserted %d rows into meteorological_stations", rows)
         return rows
 
     # -------------------------------------------------------------------------
@@ -160,7 +160,7 @@ def seed_stations():
         cursor = conn.cursor()
 
         sql = """
-            INSERT INTO public.dim_station_proximity (
+            INSERT INTO ref.station_proximity (
                 hydro_station_code,
                 meteo_station_code,
                 distance_km,
@@ -189,7 +189,7 @@ def seed_stations():
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into dim_station_proximity", rows)
+        log.info("Upserted %d rows into station_proximity", rows)
         return rows
 
     # -------------------------------------------------------------------------
