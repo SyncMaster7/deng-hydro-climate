@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS bronze.hydro (
     id                  BIGSERIAL PRIMARY KEY,
     jaam_kood           INTEGER NOT NULL,
     jaam_nimi           TEXT,
+    jaam_taisnimi       TEXT,
     valgala_nimi        TEXT,
     valgala_suurus_km2  NUMERIC,
     kaugus_suudmest_km  NUMERIC,
@@ -38,19 +39,19 @@ CREATE TABLE IF NOT EXISTS bronze.hydro (
 -- One row per station + timestamp + element (long format)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS bronze.meteo (
-    id              BIGSERIAL PRIMARY KEY,
-    jaam_kood       TEXT NOT NULL,
-    jaam_nimi       TEXT,
-    aasta           INTEGER NOT NULL,
-    kuu             INTEGER NOT NULL,
-    paev            INTEGER NOT NULL,
-    tund            INTEGER NOT NULL,
-    vaartus         NUMERIC,
-    element_kood    TEXT NOT NULL,
-    element_nimi    TEXT,
-    element_yhik    TEXT,
-    observation_ts  TIMESTAMP WITH TIME ZONE,
-    loaded_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    id               BIGSERIAL PRIMARY KEY,
+    jaam_kood        TEXT NOT NULL,
+    jaam_nimi        TEXT,
+    aasta            INTEGER NOT NULL,
+    kuu              INTEGER NOT NULL,
+    paev             INTEGER NOT NULL,
+    tund             INTEGER NOT NULL,
+    vaartus          NUMERIC,
+    element_kood     TEXT NOT NULL,
+    element_nimi_eng TEXT,
+    element_yhik_eng TEXT,
+    observation_ts   TIMESTAMP WITH TIME ZONE,
+    loaded_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (jaam_kood, aasta, kuu, paev, tund, element_kood)
 );
 
