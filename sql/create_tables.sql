@@ -6,15 +6,15 @@
 -- ---------------------------------------------------------------------------
 -- Schemas
 -- ---------------------------------------------------------------------------
-CREATE SCHEMA IF NOT EXISTS staging;
+CREATE SCHEMA IF NOT EXISTS bronze;
 CREATE SCHEMA IF NOT EXISTS ref;
 
 -- ---------------------------------------------------------------------------
--- staging.hydro_raw
+-- bronze.hydro
 -- Raw hydrological observations from f_hydroseire API
 -- One row per station + timestamp + measurement type (long format)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS staging.hydro_raw (
+CREATE TABLE IF NOT EXISTS bronze.hydro (
     id                  BIGSERIAL PRIMARY KEY,
     jaam_kood           INTEGER NOT NULL,
     jaam_nimi           TEXT,
@@ -33,11 +33,11 @@ CREATE TABLE IF NOT EXISTS staging.hydro_raw (
 );
 
 -- ---------------------------------------------------------------------------
--- staging.meteo_raw
+-- bronze.meteo
 -- Raw meteorological observations from f_kliima_tund API
 -- One row per station + timestamp + element (long format)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS staging.meteo_raw (
+CREATE TABLE IF NOT EXISTS bronze.meteo (
     id              BIGSERIAL PRIMARY KEY,
     jaam_kood       TEXT NOT NULL,
     jaam_nimi       TEXT,
@@ -55,10 +55,10 @@ CREATE TABLE IF NOT EXISTS staging.meteo_raw (
 );
 
 -- ---------------------------------------------------------------------------
--- staging.etl_log
+-- bronze.etl_log
 -- Logs every pipeline run — one row per task execution
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS staging.etl_log (
+CREATE TABLE IF NOT EXISTS bronze.etl_log (
     id              BIGSERIAL PRIMARY KEY,
     dag_id          TEXT,
     task_id         TEXT,
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS staging.etl_log (
     started_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     finished_at     TIMESTAMP WITH TIME ZONE,
     rows_loaded     INTEGER,
+    source_file     TEXT,
     status          TEXT CHECK (status IN ('running', 'success', 'error')),
     error_message   TEXT
 );
