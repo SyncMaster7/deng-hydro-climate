@@ -1,29 +1,42 @@
 # =============================================================================
-# deng-hydro-climate — seed_stations.py
-# Loads station reference data from CSV seed files into dimension tables
+# deng-hydro-climate — dags/seed_stations.py
+# Loads station reference data from CSV seed files into ref tables
+# Calculates station proximity matrix using haversine formula
 # Trigger: manual only (schedule=None)
+#
 # Tasks:
-#   seed_hydrometric_stations  ─┐
-#                                ├─► seed_station_proximity
-#   seed_meteorological_stations─┘
+#   load_hydrometric_stations  ─┐
+#                                ├─► calculate_proximity (conditional)
+#   load_meteorological_stations┘
 # =============================================================================
 
 import csv
 import logging
-from datetime import datetime
+import sys
+
+from pendulum import datetime
 
 from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.sdk import Asset
+
+sys.path.insert(0, "/opt/airflow")
+from ingestion.haversine import haversine_km
 
 log = logging.getLogger(__name__)
 
 CONN_ID = "analytics_db"
 SEEDS_PATH = "/opt/airflow/seeds"
 
+# Airflow Assets — emitted by this DAG, consumed by downstream DAGs
+asset_hydrometric_stations    = Asset("ref/hydrometric_stations")
+asset_meteorological_stations = Asset("ref/meteorological_stations")
+asset_station_proximity       = Asset("ref/station_proximity")
+
 
 @dag(
     dag_id="seed_stations",
-    description="Load hydrometric, meteorological, and proximity seed data into dimension tables",
+    description="Load station reference data and auto-generate proximity matrix",
     schedule=None,
     start_date=datetime(2025, 1, 1),
     catchup=False,
@@ -32,10 +45,10 @@ SEEDS_PATH = "/opt/airflow/seeds"
 def seed_stations():
 
     # -------------------------------------------------------------------------
-    # Task 1a — Hydrometric stations
+    # Task 1a — Hydrometric stations (parallel)
     # -------------------------------------------------------------------------
-    @task()
-    def seed_hydrometric_stations():
+    @task(outlets=[asset_hydrometric_stations])
+    def load_hydrometric_stations() -> int:
         hook = PostgresHook(postgres_conn_id=CONN_ID)
         conn = hook.get_conn()
         cursor = conn.cursor()
@@ -95,14 +108,14 @@ def seed_stations():
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into hydrometric_stations", rows)
+        log.info("Upserted %d rows into ref.hydrometric_stations", rows)
         return rows
 
     # -------------------------------------------------------------------------
-    # Task 1b — Meteorological stations
+    # Task 1b — Meteorological stations (parallel)
     # -------------------------------------------------------------------------
-    @task()
-    def seed_meteorological_stations():
+    @task(outlets=[asset_meteorological_stations])
+    def load_meteorological_stations() -> int:
         hook = PostgresHook(postgres_conn_id=CONN_ID)
         conn = hook.get_conn()
         cursor = conn.cursor()
@@ -147,27 +160,54 @@ def seed_stations():
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into meteorological_stations", rows)
+        log.info("Upserted %d rows into ref.meteorological_stations", rows)
         return rows
 
     # -------------------------------------------------------------------------
-    # Task 2 — Station proximity (depends on both station tasks)
+    # Task 2 — Calculate proximity matrix (haversine, conditional)
+    # Runs if either load task touched rows OR proximity table is empty
     # -------------------------------------------------------------------------
-    @task()
-    def seed_station_proximity():
+    @task(outlets=[asset_station_proximity])
+    def calculate_proximity(hydro_count: int, meteo_count: int) -> int:
         hook = PostgresHook(postgres_conn_id=CONN_ID)
         conn = hook.get_conn()
         cursor = conn.cursor()
 
-        sql = """
+        # Check if proximity table is empty
+        cursor.execute("SELECT COUNT(*) FROM ref.station_proximity;")
+        proximity_empty = cursor.fetchone()[0] == 0
+
+        if hydro_count == 0 and meteo_count == 0 and not proximity_empty:
+            log.info(
+                "No station changes and proximity table is populated — skipping recalculation"
+            )
+            cursor.close()
+            conn.close()
+            return 0
+
+        log.info(
+            "Recalculating proximity matrix (hydro_count=%d, meteo_count=%d, proximity_empty=%s)",
+            hydro_count, meteo_count, proximity_empty,
+        )
+
+        # Load all active stations from DB
+        cursor.execute(
+            "SELECT station_code, latitude, longitude FROM ref.hydrometric_stations WHERE is_active = true;"
+        )
+        hydro_stations = cursor.fetchall()
+
+        cursor.execute(
+            "SELECT station_code, latitude, longitude FROM ref.meteorological_stations WHERE is_active = true;"
+        )
+        meteo_stations = cursor.fetchall()
+
+        upsert_sql = """
             INSERT INTO ref.station_proximity (
                 hydro_station_code,
                 meteo_station_code,
                 distance_km,
                 proximity_rank
-            ) VALUES (
-                %s, %s, %s, %s
-            )
+            ) VALUES (%s, %s, %s, %s)
             ON CONFLICT (hydro_station_code, proximity_rank) DO UPDATE SET
                 meteo_station_code = EXCLUDED.meteo_station_code,
                 distance_km        = EXCLUDED.distance_km,
@@ -175,31 +215,29 @@ def seed_stations():
         """
 
         rows = 0
-        with open(f"{SEEDS_PATH}/station_proximity.csv", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                cursor.execute(sql, (
-                    int(row["hydro_station_code"]),
-                    row["meteo_station_code"],
-                    float(row["distance_km"]),
-                    int(row["proximity_rank"]),
-                ))
+        for h_code, h_lat, h_lon in hydro_stations:
+            distances = [
+                (haversine_km(float(h_lat), float(h_lon), float(m_lat), float(m_lon)), m_code)
+                for m_code, m_lat, m_lon in meteo_stations
+            ]
+            distances.sort(key=lambda x: x[0])
+
+            for rank, (dist_km, m_code) in enumerate(distances[:3], start=1):
+                cursor.execute(upsert_sql, (h_code, m_code, round(dist_km, 3), rank))
                 rows += 1
 
         conn.commit()
         cursor.close()
         conn.close()
-        log.info("Upserted %d rows into station_proximity", rows)
+        log.info("Upserted %d rows into ref.station_proximity", rows)
         return rows
 
     # -------------------------------------------------------------------------
-    # Task dependencies
+    # Task dependencies — loads run in parallel, proximity waits for both
     # -------------------------------------------------------------------------
-    hydro = seed_hydrometric_stations()
-    meteo = seed_meteorological_stations()
-    proximity = seed_station_proximity()
-
-    [hydro, meteo] >> proximity
+    hydro = load_hydrometric_stations()
+    meteo = load_meteorological_stations()
+    calculate_proximity(hydro_count=hydro, meteo_count=meteo)
 
 
 seed_stations()
