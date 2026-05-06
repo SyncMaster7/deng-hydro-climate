@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS bronze.meteo (
     element_kood     TEXT NOT NULL,
     element_nimi_eng TEXT,
     element_yhik_eng TEXT,
-    observation_ts   TIMESTAMP WITH TIME ZONE,
+    avaandmed_ts     TIMESTAMP WITH TIME ZONE,
     loaded_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (jaam_kood, aasta, kuu, paev, tund, element_kood)
 );
