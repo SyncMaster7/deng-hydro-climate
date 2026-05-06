@@ -6,7 +6,7 @@
 #
 # Tasks:
 #   load_hydrometric_stations  ─┐
-#                                ├─► calculate_proximity (conditional)
+#                               ├─► calculate_proximity (conditional)
 #   load_meteorological_stations┘
 # =============================================================================
 
@@ -14,11 +14,12 @@ import csv
 import logging
 import sys
 
+sys.path.insert(0, "/opt/airflow")
+
 from pendulum import datetime
 
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task, Asset
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.sdk import Asset
 
 from ingestion.haversine import haversine_km
 
