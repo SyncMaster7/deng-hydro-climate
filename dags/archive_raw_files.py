@@ -32,6 +32,7 @@ MAX_AGE_DAYS = 7
     schedule="@daily",
     start_date=pendulum_datetime(2026, 5, 1, tz="UTC"),
     catchup=False,
+    max_active_runs=1,
     tags=["archive", "maintenance"],
 )
 def archive_raw_files():
