@@ -28,6 +28,8 @@ x-airflow-common: &airflow-common
     - ./dbt_project:/opt/airflow/dbt_project
     - ./ingestion:/opt/airflow/ingestion
     - ./seeds:/opt/airflow/seeds
+    - /data/raw:/data/raw
+    - /data/archive:/data/archive
   depends_on:
     airflow-db:
       condition: service_healthy
