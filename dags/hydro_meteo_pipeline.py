@@ -294,7 +294,7 @@ def hydro_meteo_pipeline():
         import subprocess
         log.info("Running dbt build (hydro_rows=%d, meteo_rows=%d)", hydro_rows, meteo_rows)
         result = subprocess.run(
-            ["dbt", "build", "--project-dir", "/opt/airflow/dbt_project"],
+            ["dbt", "build", "--project-dir", "/opt/airflow/dbt_project", "--profiles-dir", "/home/airflow/.dbt"],
             capture_output=True,
             text=True,
         )

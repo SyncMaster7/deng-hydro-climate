@@ -26,6 +26,7 @@ x-airflow-common: &airflow-common
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
     - ./dbt_project:/opt/airflow/dbt_project
+    - ./dbt_project/profiles.yml:/home/airflow/.dbt/profiles.yml:ro
     - ./ingestion:/opt/airflow/ingestion
     - ./seeds:/opt/airflow/seeds
     - /data/raw:/data/raw
@@ -176,6 +177,7 @@ services:
       DBT_ANALYTICS_DB: ${ANALYTICS_DB_NAME}
     volumes:
       - ./dbt_project:/dbt
+      - ./dbt_project/profiles.yml:/root/.dbt/profiles.yml:ro
     depends_on:
       analytics-db:
         condition: service_healthy

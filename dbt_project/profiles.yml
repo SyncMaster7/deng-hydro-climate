@@ -1,0 +1,12 @@
+deng_hydro_climate:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_ANALYTICS_HOST') }}"
+      port: "{{ env_var('DBT_ANALYTICS_PORT') | int }}"
+      user: "{{ env_var('DBT_ANALYTICS_USER') }}"
+      password: "{{ env_var('DBT_ANALYTICS_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_ANALYTICS_DB') }}"
+      schema: silver
+      threads: 4
