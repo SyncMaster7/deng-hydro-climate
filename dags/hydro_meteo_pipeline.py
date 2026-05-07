@@ -299,11 +299,10 @@ def hydro_meteo_pipeline():
                 "--project-dir", "/opt/airflow/dbt_project",
                 "--profiles-dir", "/home/airflow/.dbt",
                 "--log-path", "/tmp/dbt_logs",
-                "--target-path", "/tmp/dbt_target",
+                "--target-path", "/tmp/dbt_target"
             ],
             capture_output=True,
             text=True,
-        )
         )
         log.info(result.stdout)
         if result.returncode != 0:
