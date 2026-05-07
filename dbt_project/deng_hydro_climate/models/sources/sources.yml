@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: bronze
+    schema: bronze
+    tables:
+      - name: hydro
+      - name: meteo
+      - name: etl_log
+
+  - name: ref
+    schema: ref
+    tables:
+      - name: hydrometric_stations
+      - name: meteorological_stations
+      - name: station_proximity
