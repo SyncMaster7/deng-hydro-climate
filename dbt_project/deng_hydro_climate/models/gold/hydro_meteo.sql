@@ -105,7 +105,7 @@ final AS (
 
         -- Nearest meteo station info
         p.meteo_station_code,
-        m.meteo_station_name,
+        m.jaam_nimi             AS meteo_station_name,
         p.distance_km           AS meteo_distance_km,
         ms.meteo_latitude,
         ms.meteo_longitude,
