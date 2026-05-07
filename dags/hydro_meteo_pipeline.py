@@ -5,7 +5,7 @@
 #
 # Tasks:
 #   fetch_hydro  ──► ingest_hydro ──┐
-#                                    ├──► run_dbt
+#                                   ├──► run_dbt
 #   fetch_meteo  ──► ingest_meteo ──┘
 #
 # Schedule: daily — each run covers exactly one day via data_interval_start
@@ -42,8 +42,8 @@ asset_meteo_bronze   = Asset("bronze/meteo")
     dag_id="hydro_meteo_pipeline",
     description="Daily fetch → raw file → bronze ingestion → dbt for hydro and meteo data",
     schedule="@daily",
-    start_date=datetime(2026, 5, 1, tz="UTC"),
-    catchup=False,
+    start_date=datetime(2026, 1, 1, tz="UTC"),
+    catchup=True,
     max_active_runs=1,
     tags=["ingestion", "bronze"],
 )
