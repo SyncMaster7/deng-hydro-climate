@@ -208,7 +208,7 @@ services:
   # Superset init — runs once to migrate DB and create admin user
   # ---------------------------------------------------------------------------
   superset-init:
-    image: apache/superset:latest
+    build: ./docker/superset
     container_name: deng-superset-init
     restart: "no"
     environment:
@@ -241,7 +241,7 @@ services:
   # Superset — dashboards and visualisation
   # ---------------------------------------------------------------------------
   superset:
-    image: apache/superset:latest
+    build: ./docker/superset
     container_name: deng-superset
     restart: unless-stopped
     environment:
