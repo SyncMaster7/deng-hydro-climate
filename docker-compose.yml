@@ -181,3 +181,74 @@ services:
     depends_on:
       analytics-db:
         condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Superset metadata database — internal Superset state only
+  # ---------------------------------------------------------------------------
+  superset-db:
+    image: postgres:16
+    container_name: deng-superset-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SUPERSET_DB_USER}
+      POSTGRES_PASSWORD: ${SUPERSET_DB_PASSWORD}
+      POSTGRES_DB: ${SUPERSET_DB_NAME}
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5434:5432"
+    volumes:
+      - /data/volumes/superset_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SUPERSET_DB_USER} -d ${SUPERSET_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Superset init — runs once to migrate DB and create admin user
+  # ---------------------------------------------------------------------------
+  superset-init:
+    image: apache/superset:latest
+    container_name: deng-superset-init
+    restart: "no"
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${SUPERSET_DB_USER}:${SUPERSET_DB_PASSWORD}@superset-db:5432/${SUPERSET_DB_NAME}
+    command:
+      - /bin/bash
+      - -c
+      - |
+        superset db upgrade &&
+        superset init &&
+        superset fab create-admin \
+          --username ${SUPERSET_ADMIN_USER} \
+          --password ${SUPERSET_ADMIN_PASSWORD} \
+          --firstname Admin \
+          --lastname User \
+          --email ${SUPERSET_ADMIN_EMAIL} || true
+    depends_on:
+      superset-db:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Superset — dashboards and visualisation
+  # ---------------------------------------------------------------------------
+  superset:
+    image: apache/superset:latest
+    container_name: deng-superset
+    restart: unless-stopped
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${SUPERSET_DB_USER}:${SUPERSET_DB_PASSWORD}@superset-db:5432/${SUPERSET_DB_NAME}
+    ports:
+      - "8088:8088"
+    depends_on:
+      superset-db:
+        condition: service_healthy
+      superset-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
