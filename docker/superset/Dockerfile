@@ -1,6 +1,6 @@
 FROM apache/superset:latest
 
 USER root
-RUN /app/.venv/bin/pip install psycopg2-binary
+RUN /app/docker/pip-install.sh psycopg2-binary
 
 USER superset
