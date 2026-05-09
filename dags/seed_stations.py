@@ -256,11 +256,30 @@ def seed_stations():
         return rows
 
     # -------------------------------------------------------------------------
-    # Task dependencies — loads run in parallel, proximity waits for both
+    # Task 3 — Run dbt snapshots (always, after proximity is up to date)
+    # -------------------------------------------------------------------------
+    @task
+    def run_snapshot() -> None:
+        import subprocess
+        result = subprocess.run(
+            ["dbt", "snapshot", "--project-dir", "/opt/airflow/dbt_project"],
+            capture_output=True,
+            text=True,
+        )
+        log.info(result.stdout)
+        if result.returncode != 0:
+            log.error(result.stderr)
+            raise RuntimeError(f"dbt snapshot failed:\n{result.stderr}")
+        log.info("dbt snapshot completed successfully")
+
+    # -------------------------------------------------------------------------
+    # Task dependencies — loads run in parallel, proximity waits for both,
+    # snapshots run last (always, unconditionally)
     # -------------------------------------------------------------------------
     hydro = load_hydrometric_stations()
     meteo = load_meteorological_stations()
-    calculate_proximity(hydro_count=hydro, meteo_count=meteo)
+    proximity = calculate_proximity(hydro_count=hydro, meteo_count=meteo)
+    proximity >> run_snapshot()
 
 
 seed_stations()
