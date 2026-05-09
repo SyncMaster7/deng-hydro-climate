@@ -8,7 +8,7 @@
 #                                   ├──► run_dbt
 #   fetch_meteo  ──► ingest_meteo ──┘
 #
-# Schedule: daily — each run covers exactly one day via data_interval_start
+# Schedule: 0 6 * * * — after meteo daily batch publishes (~02:01 UTC)
 # =============================================================================
 
 import json
@@ -41,7 +41,7 @@ asset_meteo_bronze   = Asset("bronze/meteo")
 @dag(
     dag_id="hydro_meteo_pipeline",
     description="Daily fetch → raw file → bronze ingestion → dbt for hydro and meteo data",
-    schedule="@daily",
+    schedule="0 6 * * *",
     start_date=datetime(2026, 1, 1, tz="UTC"),
     catchup=True,
     max_active_runs=1,
@@ -66,6 +66,10 @@ def hydro_meteo_pipeline():
         response = requests.get(HYDRO_API_URL, params=params, timeout=60)
         response.raise_for_status()
         data = response.json()
+
+        if not data:
+            raise ValueError(f"API returned empty response for hydro on {date} — aborting to avoid writing empty file")
+
         log.info("Received %d hydro records for %s", len(data), date)
 
         os.makedirs(RAW_HYDRO_DIR, exist_ok=True)
@@ -93,6 +97,10 @@ def hydro_meteo_pipeline():
         response = requests.get(METEO_API_URL, params=params, timeout=60)
         response.raise_for_status()
         data = response.json()
+
+        if not data:
+            raise ValueError(f"API returned empty response for meteo on {date} — aborting to avoid writing empty file")
+
         log.info("Received %d meteo records for %s", len(data), date)
 
         os.makedirs(RAW_METEO_DIR, exist_ok=True)
@@ -140,52 +148,47 @@ def hydro_meteo_pipeline():
                     veekogu_nimi,
                     timeline_ts_utc,
                     timeline_ts_local,
+                    aegrida_kood,
                     aegrida_nimi,
-                    vaartus
+                    vaartus,
+                    source_file
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %(jaam_kood)s,
+                    %(jaam_nimi)s,
+                    %(jaam_taisnimi)s,
+                    %(valgala_nimi)s,
+                    %(valgala_suurus_km2)s,
+                    %(kaugus_suudmest_km)s,
+                    %(jaam_laiuskraad)s,
+                    %(jaam_pikkuskraad)s,
+                    %(veekogu_nimi)s,
+                    %(timeline_ts_utc)s,
+                    %(timeline_ts_local)s,
+                    %(aegrida_kood)s,
+                    %(aegrida_nimi)s,
+                    %(vaartus)s,
+                    %(source_file)s
                 )
-                ON CONFLICT (jaam_kood, timeline_ts_utc, aegrida_nimi) DO UPDATE SET
-                    jaam_nimi          = EXCLUDED.jaam_nimi,
-                    jaam_taisnimi      = EXCLUDED.jaam_taisnimi,
-                    valgala_nimi       = EXCLUDED.valgala_nimi,
-                    valgala_suurus_km2 = EXCLUDED.valgala_suurus_km2,
-                    kaugus_suudmest_km = EXCLUDED.kaugus_suudmest_km,
-                    jaam_laiuskraad    = EXCLUDED.jaam_laiuskraad,
-                    jaam_pikkuskraad   = EXCLUDED.jaam_pikkuskraad,
-                    veekogu_nimi       = EXCLUDED.veekogu_nimi,
-                    timeline_ts_local  = EXCLUDED.timeline_ts_local,
-                    vaartus            = EXCLUDED.vaartus,
-                    loaded_at          = NOW();
+                ON CONFLICT (jaam_kood, timeline_ts_utc, aegrida_kood)
+                DO UPDATE SET
+                    vaartus     = EXCLUDED.vaartus,
+                    loaded_at   = NOW();
             """
 
-            rows = 0
-            for r in records:
-                cursor.execute(sql, (
-                    r["jaam_kood"],
-                    r.get("jaam_nimi"),
-                    r.get("jaam_taisnimi"),
-                    r.get("valgala_nimi"),
-                    r.get("valgala_suurus_km2"),
-                    r.get("kaugus_suudmest_km"),
-                    r.get("jaam_laiuskraad"),
-                    r.get("jaam_pikkuskraad"),
-                    r.get("veekogu_nimi"),
-                    r["timeline_ts_utc"],
-                    r.get("timeline_ts_local"),
-                    r["aegrida_nimi"],
-                    r.get("vaartus"),
-                ))
-                rows += 1
+            rows = [{**r, "source_file": source_file} for r in records]
+            cursor.executemany(sql, rows)
+            rows_loaded = len(rows)
+            conn.commit()
 
             cursor.execute("""
                 UPDATE bronze.etl_log
-                SET finished_at = NOW(), rows_loaded = %s, status = 'success'
+                SET finished_at = NOW(), status = 'success', rows_loaded = %s
                 WHERE id = %s;
-            """, (rows, log_id))
+            """, (rows_loaded, log_id))
             conn.commit()
-            log.info("Ingested %d rows into bronze.hydro from %s", rows, source_file)
-            return rows
+
+            log.info("Ingested %d hydro rows for %s", rows_loaded, date)
+            return rows_loaded
 
         except Exception as e:
             cursor.execute("""
@@ -230,49 +233,41 @@ def hydro_meteo_pipeline():
                     aasta,
                     kuu,
                     paev,
-                    tund,
-                    vaartus,
+                    kellaaeg,
                     element_kood,
-                    element_nimi_eng,
-                    element_yhik_eng,
-                    avaandmed_ts
+                    vaartus,
+                    source_file
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %(jaam_kood)s,
+                    %(jaam_nimi)s,
+                    %(aasta)s,
+                    %(kuu)s,
+                    %(paev)s,
+                    %(kellaaeg)s,
+                    %(element_kood)s,
+                    %(vaartus)s,
+                    %(source_file)s
                 )
-                ON CONFLICT (jaam_kood, aasta, kuu, paev, tund, element_kood) DO UPDATE SET
-                    jaam_nimi        = EXCLUDED.jaam_nimi,
-                    vaartus          = EXCLUDED.vaartus,
-                    element_nimi_eng = EXCLUDED.element_nimi_eng,
-                    element_yhik_eng = EXCLUDED.element_yhik_eng,
-                    avaandmed_ts     = EXCLUDED.avaandmed_ts,
-                    loaded_at        = NOW();
+                ON CONFLICT (jaam_kood, aasta, kuu, paev, kellaaeg, element_kood)
+                DO UPDATE SET
+                    vaartus     = EXCLUDED.vaartus,
+                    loaded_at   = NOW();
             """
 
-            rows = 0
-            for r in records:
-                cursor.execute(sql, (
-                    r["jaam_kood"],
-                    r.get("jaam_nimi"),
-                    r["aasta"],
-                    r["kuu"],
-                    r["paev"],
-                    r["tund"],
-                    r.get("vaartus"),
-                    r["element_kood"],
-                    r.get("element_nimi_eng"),
-                    r.get("element_yhik_eng"),
-                    r.get("avaandmed_ts"),
-                ))
-                rows += 1
+            rows = [{**r, "source_file": source_file} for r in records]
+            cursor.executemany(sql, rows)
+            rows_loaded = len(rows)
+            conn.commit()
 
             cursor.execute("""
                 UPDATE bronze.etl_log
-                SET finished_at = NOW(), rows_loaded = %s, status = 'success'
+                SET finished_at = NOW(), status = 'success', rows_loaded = %s
                 WHERE id = %s;
-            """, (rows, log_id))
+            """, (rows_loaded, log_id))
             conn.commit()
-            log.info("Ingested %d rows into bronze.meteo from %s", rows, source_file)
-            return rows
+
+            log.info("Ingested %d meteo rows for %s", rows_loaded, date)
+            return rows_loaded
 
         except Exception as e:
             cursor.execute("""
