@@ -262,7 +262,7 @@ def seed_stations():
     def run_snapshot() -> None:
         import subprocess
         result = subprocess.run(
-            ["dbt", "snapshot", "--project-dir", "/opt/airflow/dbt_project"],
+            ["dbt", "snapshot", "--project-dir", "/opt/airflow/dbt_project", "--log-path", "/tmp"],
             capture_output=True,
             text=True,
         )
