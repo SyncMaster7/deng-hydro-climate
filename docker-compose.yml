@@ -160,6 +160,26 @@ services:
         condition: service_completed_successfully
 
   # ---------------------------------------------------------------------------
+  # Airflow triggerer — handles deferred tasks and sensors
+  # ---------------------------------------------------------------------------
+  airflow-triggerer:
+    <<: *airflow-common
+    container_name: deng-airflow-triggerer
+    command: triggerer
+    restart: unless-stopped
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
   # dbt — dedicated container for interactive dbt development
   # stays running so you can: docker compose exec dbt dbt run
   # ---------------------------------------------------------------------------
