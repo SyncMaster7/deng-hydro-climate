@@ -52,7 +52,12 @@ def hydro_meteo_pipeline():
     # -------------------------------------------------------------------------
     # Task 1a — Fetch hydro data for target date, save to raw landing zone
     # -------------------------------------------------------------------------
-    @task(outlets=[asset_hydro_raw_file])
+    @task(
+        outlets=[asset_hydro_raw_file],
+        retries=3,
+        retry_delay=timedelta(minutes=15),
+        retry_exponential_backoff=True,
+    )
     def fetch_hydro(data_interval_start=None) -> str:
         date = data_interval_start.date()
         date_next = date + timedelta(days=1)
@@ -83,7 +88,12 @@ def hydro_meteo_pipeline():
     # -------------------------------------------------------------------------
     # Task 1b — Fetch meteo data for target date, save to raw landing zone
     # -------------------------------------------------------------------------
-    @task(outlets=[asset_meteo_raw_file])
+    @task(
+        outlets=[asset_meteo_raw_file],
+        retries=3,
+        retry_delay=timedelta(minutes=15),
+        retry_exponential_backoff=True,
+    )
     def fetch_meteo(data_interval_start=None) -> str:
         date = data_interval_start.date()
 
