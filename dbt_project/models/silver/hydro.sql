@@ -61,11 +61,13 @@ pivoted AS (
         timeline_ts_utc, timeline_ts_local
 ),
 
-stations AS (
+snap AS (
     -- Point-in-time join against snapshot — picks the station parameters
     -- that were valid at the exact time of each measurement.
     -- If station_altitude_msl_m is corrected, historical rows keep the
     -- altitude that was recorded at the time, not the current value.
+    -- NOTE: snapshot only tracks changes from first run (2026-05-09).
+    -- For data before that date, falls back to live ref table via COALESCE.
     SELECT
         station_code,
         station_category,
@@ -75,11 +77,20 @@ stations AS (
     FROM {{ ref('snap_hydro_stations') }}
 ),
 
+ref_stations AS (
+    -- Fallback for measurements older than first snapshot run
+    SELECT
+        station_code,
+        station_category,
+        station_altitude_msl_m
+    FROM {{ source('ref', 'hydrometric_stations') }}
+),
+
 final AS (
     SELECT
         p.*,
-        s.station_category,
-        s.station_altitude_msl_m,
+        COALESCE(s.station_category,       r.station_category)       AS station_category,
+        COALESCE(s.station_altitude_msl_m, r.station_altitude_msl_m) AS station_altitude_msl_m,
 
         -- EH2000 water level correction:
         -- station_altitude_msl_m is the gauge zero elevation relative to EH2000
@@ -89,16 +100,18 @@ final AS (
         --   Vihterpalu (monitoring, +5.56m): wl_avg + 5.56 = EH2000
         --   Narva linn  (monitoring, -0.90m): wl_avg - 0.90 = EH2000
         CASE
-            WHEN s.station_altitude_msl_m IS NOT NULL
-            THEN p.wl_avg + s.station_altitude_msl_m
+            WHEN COALESCE(s.station_altitude_msl_m, r.station_altitude_msl_m) IS NOT NULL
+            THEN p.wl_avg + COALESCE(s.station_altitude_msl_m, r.station_altitude_msl_m)
             ELSE p.wl_avg
         END AS wl_avg_corrected
 
     FROM pivoted p
-    LEFT JOIN stations s
+    LEFT JOIN snap s
         ON  p.jaam_kood       = s.station_code
         AND p.timeline_ts_utc >= s.dbt_valid_from::timestamptz
         AND p.timeline_ts_utc <  s.dbt_valid_to::timestamptz
+    LEFT JOIN ref_stations r
+        ON  p.jaam_kood = r.station_code
 )
 
 SELECT * FROM final
