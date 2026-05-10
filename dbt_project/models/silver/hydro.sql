@@ -2,7 +2,8 @@
 -- silver.hydro
 -- Pivots bronze.hydro from long format to wide format
 -- One row per station per hour with columns for each measurement type
--- Applies coastal water level correction using ref.hydrometric_stations
+-- Applies EH2000 water level correction using point-in-time snapshot join
+-- (snapshots.snap_hydro_stations) — historically correct per measurement row
 -- =============================================================================
 
 WITH source AS (
@@ -61,11 +62,17 @@ pivoted AS (
 ),
 
 stations AS (
+    -- Point-in-time join against snapshot — picks the station parameters
+    -- that were valid at the exact time of each measurement.
+    -- If station_altitude_msl_m is corrected, historical rows keep the
+    -- altitude that was recorded at the time, not the current value.
     SELECT
         station_code,
         station_category,
-        station_altitude_msl_m
-    FROM {{ source('ref', 'hydrometric_stations') }}
+        station_altitude_msl_m,
+        dbt_valid_from,
+        dbt_valid_to
+    FROM {{ ref('snap_hydro_stations') }}
 ),
 
 final AS (
@@ -88,7 +95,10 @@ final AS (
         END AS wl_avg_corrected
 
     FROM pivoted p
-    LEFT JOIN stations s ON p.jaam_kood = s.station_code
+    LEFT JOIN stations s
+        ON  p.jaam_kood       = s.station_code
+        AND p.timeline_ts_utc >= s.dbt_valid_from
+        AND p.timeline_ts_utc <  s.dbt_valid_to
 )
 
 SELECT * FROM final
