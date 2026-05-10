@@ -74,11 +74,15 @@ final AS (
         s.station_category,
         s.station_altitude_msl_m,
 
-        -- Coastal water level correction:
-        -- Coastal stations have gauge zero at -500 cm EH2000
-        -- Apply offset to make readings comparable to river stations
+        -- EH2000 water level correction:
+        -- station_altitude_msl_m is the gauge zero elevation relative to EH2000
+        -- Adding it converts the raw reading to EH2000 (Amsterdam zero)
+        -- Applies to all stations with a known gauge zero, not just coastal
+        -- Verified against official ilmateenistus.ee values:
+        --   Vihterpalu (monitoring, +5.56m): wl_avg + 5.56 = EH2000
+        --   Narva linn  (monitoring, -0.90m): wl_avg - 0.90 = EH2000
         CASE
-            WHEN s.station_category = 'coastal'
+            WHEN s.station_altitude_msl_m IS NOT NULL
             THEN p.wl_avg + s.station_altitude_msl_m
             ELSE p.wl_avg
         END AS wl_avg_corrected
