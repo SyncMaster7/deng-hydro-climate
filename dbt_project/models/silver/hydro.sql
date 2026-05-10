@@ -97,8 +97,8 @@ final AS (
     FROM pivoted p
     LEFT JOIN stations s
         ON  p.jaam_kood       = s.station_code
-        AND p.timeline_ts_utc >= s.dbt_valid_from
-        AND p.timeline_ts_utc <  s.dbt_valid_to
+        AND p.timeline_ts_utc >= s.dbt_valid_from::timestamptz
+        AND p.timeline_ts_utc <  s.dbt_valid_to::timestamptz
 )
 
 SELECT * FROM final
