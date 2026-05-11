@@ -63,11 +63,11 @@ def hydro_meteo_pipeline():
         date_next = date + timedelta(days=1)
 
         params = [
-            ("timeline_ts_utc", f"gte.{date}T00:00:00"),
-            ("timeline_ts_utc", f"lt.{date_next}T00:00:00"),
+            ("timeline_ts_local", f"gte.{date}T00:00:00"),
+            ("timeline_ts_local", f"lt.{date_next}T00:00:00"),
         ]
 
-        log.info("Fetching hydro data for %s", date)
+        log.info("Fetching hydro data for local date %s", date)
         response = requests.get(HYDRO_API_URL, params=params, timeout=60)
         response.raise_for_status()
         data = response.json()
