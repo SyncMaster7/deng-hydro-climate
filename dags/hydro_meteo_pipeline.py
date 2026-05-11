@@ -62,10 +62,8 @@ def hydro_meteo_pipeline():
         target_date = data_interval_start.date() - timedelta(days=1)
         date_next = target_date + timedelta(days=1)
 
-        params = [
-            ("timeline_ts_local", f"gte.{target_date}T00:00:00"),
-            ("timeline_ts_local", f"lt.{date_next}T00:00:00"),
-        ]
+        # Build query string manually to avoid requests encoding colons in timestamps
+        query = f"timeline_ts_local=gte.{target_date}T00:00:00&timeline_ts_local=lt.{date_next}T00:00:00"
 
         hook = PostgresHook(postgres_conn_id=CONN_ID)
         conn = hook.get_conn()
@@ -80,7 +78,7 @@ def hydro_meteo_pipeline():
 
         try:
             log.info("Fetching hydro data for local date %s", target_date)
-            response = requests.get(HYDRO_API_URL, params=params, timeout=60)
+            response = requests.get(f"{HYDRO_API_URL}?{query}", timeout=60)
             response.raise_for_status()
             data = response.json()
 
