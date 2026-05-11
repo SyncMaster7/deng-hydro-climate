@@ -8,7 +8,7 @@
 #                                   ├──► run_dbt
 #   fetch_meteo  ──► ingest_meteo ──┘
 #
-# Schedule: daily — each run covers exactly one day via data_interval_start
+# Schedule: daily at 06:00 UTC — each run fetches data_interval_start - 1 day
 # =============================================================================
 
 import json
@@ -59,31 +59,63 @@ def hydro_meteo_pipeline():
         retry_exponential_backoff=True,
     )
     def fetch_hydro(data_interval_start=None) -> str:
-        date = data_interval_start.date() - timedelta(days=1)
-        date_next = date + timedelta(days=1)
+        target_date = data_interval_start.date() - timedelta(days=1)
+        date_next = target_date + timedelta(days=1)
 
         params = [
-            ("timeline_ts_local", f"gte.{date}T00:00:00"),
+            ("timeline_ts_local", f"gte.{target_date}T00:00:00"),
             ("timeline_ts_local", f"lt.{date_next}T00:00:00"),
         ]
 
-        log.info("Fetching hydro data for local date %s", date)
-        response = requests.get(HYDRO_API_URL, params=params, timeout=60)
-        response.raise_for_status()
-        data = response.json()
+        hook = PostgresHook(postgres_conn_id=CONN_ID)
+        conn = hook.get_conn()
+        cursor = conn.cursor()
 
-        if not data:
-            raise ValueError(f"API returned empty response for hydro on {date} — aborting to avoid writing empty file")
+        cursor.execute("""
+            INSERT INTO bronze.etl_log (dag_id, task_id, target_date, status)
+            VALUES (%s, %s, %s, 'running') RETURNING id;
+        """, ("hydro_meteo_pipeline", "fetch_hydro", target_date))
+        log_id = cursor.fetchone()[0]
+        conn.commit()
 
-        log.info("Received %d hydro records for %s", len(data), date)
+        try:
+            log.info("Fetching hydro data for local date %s", target_date)
+            response = requests.get(HYDRO_API_URL, params=params, timeout=60)
+            response.raise_for_status()
+            data = response.json()
 
-        os.makedirs(RAW_HYDRO_DIR, exist_ok=True)
-        file_path = f"{RAW_HYDRO_DIR}/hydro_{date}.json"
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
+            if not data:
+                raise ValueError(f"API returned empty response for hydro on {target_date} — aborting to avoid writing empty file")
 
-        log.info("Saved hydro raw file: %s", file_path)
-        return file_path
+            rows_processed = len(data)
+            log.info("Received %d hydro records for %s", rows_processed, target_date)
+
+            os.makedirs(RAW_HYDRO_DIR, exist_ok=True)
+            file_path = f"{RAW_HYDRO_DIR}/hydro_{target_date}.json"
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+
+            cursor.execute("""
+                UPDATE bronze.etl_log
+                SET finished_at = NOW(), rows_processed = %s, source_file = %s, status = 'success'
+                WHERE id = %s;
+            """, (rows_processed, os.path.basename(file_path), log_id))
+            conn.commit()
+
+            log.info("Saved hydro raw file: %s", file_path)
+            return file_path
+
+        except Exception as e:
+            cursor.execute("""
+                UPDATE bronze.etl_log
+                SET finished_at = NOW(), status = 'error', error_message = %s
+                WHERE id = %s;
+            """, (str(e), log_id))
+            conn.commit()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
 
     # -------------------------------------------------------------------------
     # Task 1b — Fetch meteo data for target date, save to raw landing zone
@@ -95,55 +127,88 @@ def hydro_meteo_pipeline():
         retry_exponential_backoff=True,
     )
     def fetch_meteo(data_interval_start=None) -> str:
-        date = data_interval_start.date() - timedelta(days=1)
+        target_date = data_interval_start.date() - timedelta(days=1)
 
         params = {
-            "aasta": f"eq.{date.year}",
-            "kuu":   f"eq.{date.month}",
-            "paev":  f"eq.{date.day}",
+            "aasta": f"eq.{target_date.year}",
+            "kuu":   f"eq.{target_date.month}",
+            "paev":  f"eq.{target_date.day}",
         }
 
-        log.info("Fetching meteo data for %s", date)
-        response = requests.get(METEO_API_URL, params=params, timeout=60)
-        response.raise_for_status()
-        data = response.json()
+        hook = PostgresHook(postgres_conn_id=CONN_ID)
+        conn = hook.get_conn()
+        cursor = conn.cursor()
 
-        if not data:
-            raise ValueError(f"API returned empty response for meteo on {date} — aborting to avoid writing empty file")
+        cursor.execute("""
+            INSERT INTO bronze.etl_log (dag_id, task_id, target_date, status)
+            VALUES (%s, %s, %s, 'running') RETURNING id;
+        """, ("hydro_meteo_pipeline", "fetch_meteo", target_date))
+        log_id = cursor.fetchone()[0]
+        conn.commit()
 
-        log.info("Received %d meteo records for %s", len(data), date)
+        try:
+            log.info("Fetching meteo data for %s", target_date)
+            response = requests.get(METEO_API_URL, params=params, timeout=60)
+            response.raise_for_status()
+            data = response.json()
 
-        os.makedirs(RAW_METEO_DIR, exist_ok=True)
-        file_path = f"{RAW_METEO_DIR}/meteo_{date}.json"
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
+            if not data:
+                raise ValueError(f"API returned empty response for meteo on {target_date} — aborting to avoid writing empty file")
 
-        log.info("Saved meteo raw file: %s", file_path)
-        return file_path
+            rows_processed = len(data)
+            log.info("Received %d meteo records for %s", rows_processed, target_date)
+
+            os.makedirs(RAW_METEO_DIR, exist_ok=True)
+            file_path = f"{RAW_METEO_DIR}/meteo_{target_date}.json"
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+
+            cursor.execute("""
+                UPDATE bronze.etl_log
+                SET finished_at = NOW(), rows_processed = %s, source_file = %s, status = 'success'
+                WHERE id = %s;
+            """, (rows_processed, os.path.basename(file_path), log_id))
+            conn.commit()
+
+            log.info("Saved meteo raw file: %s", file_path)
+            return file_path
+
+        except Exception as e:
+            cursor.execute("""
+                UPDATE bronze.etl_log
+                SET finished_at = NOW(), status = 'error', error_message = %s
+                WHERE id = %s;
+            """, (str(e), log_id))
+            conn.commit()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
 
     # -------------------------------------------------------------------------
     # Task 2a — Ingest hydro raw file into bronze.hydro
     # -------------------------------------------------------------------------
     @task(outlets=[asset_hydro_bronze])
     def ingest_hydro(file_path: str, data_interval_start=None) -> int:
-        date = data_interval_start.date()
+        target_date = data_interval_start.date() - timedelta(days=1)
         source_file = os.path.basename(file_path)
 
         hook = PostgresHook(postgres_conn_id=CONN_ID)
         conn = hook.get_conn()
         cursor = conn.cursor()
 
-        # Log start
         cursor.execute("""
-            INSERT INTO bronze.etl_log (dag_id, task_id, run_date, source_file, status)
+            INSERT INTO bronze.etl_log (dag_id, task_id, target_date, source_file, status)
             VALUES (%s, %s, %s, %s, 'running') RETURNING id;
-        """, ("hydro_meteo_pipeline", "ingest_hydro", date, source_file))
+        """, ("hydro_meteo_pipeline", "ingest_hydro", target_date, source_file))
         log_id = cursor.fetchone()[0]
         conn.commit()
 
         try:
             with open(file_path, encoding="utf-8") as f:
                 records = json.load(f)
+
+            rows_processed = len(records)
 
             sql = """
                 INSERT INTO bronze.hydro (
@@ -177,7 +242,7 @@ def hydro_meteo_pipeline():
                     loaded_at          = NOW();
             """
 
-            rows = 0
+            rows_loaded = 0
             for r in records:
                 cursor.execute(sql, (
                     r["jaam_kood"],
@@ -194,16 +259,16 @@ def hydro_meteo_pipeline():
                     r["aegrida_nimi"],
                     r.get("vaartus"),
                 ))
-                rows += 1
+                rows_loaded += 1
 
             cursor.execute("""
                 UPDATE bronze.etl_log
-                SET finished_at = NOW(), rows_loaded = %s, status = 'success'
+                SET finished_at = NOW(), rows_processed = %s, rows_loaded = %s, status = 'success'
                 WHERE id = %s;
-            """, (rows, log_id))
+            """, (rows_processed, rows_loaded, log_id))
             conn.commit()
-            log.info("Ingested %d rows into bronze.hydro from %s", rows, source_file)
-            return rows
+            log.info("Ingested %d rows into bronze.hydro from %s", rows_loaded, source_file)
+            return rows_loaded
 
         except Exception as e:
             cursor.execute("""
@@ -222,24 +287,25 @@ def hydro_meteo_pipeline():
     # -------------------------------------------------------------------------
     @task(outlets=[asset_meteo_bronze])
     def ingest_meteo(file_path: str, data_interval_start=None) -> int:
-        date = data_interval_start.date()
+        target_date = data_interval_start.date() - timedelta(days=1)
         source_file = os.path.basename(file_path)
 
         hook = PostgresHook(postgres_conn_id=CONN_ID)
         conn = hook.get_conn()
         cursor = conn.cursor()
 
-        # Log start
         cursor.execute("""
-            INSERT INTO bronze.etl_log (dag_id, task_id, run_date, source_file, status)
+            INSERT INTO bronze.etl_log (dag_id, task_id, target_date, source_file, status)
             VALUES (%s, %s, %s, %s, 'running') RETURNING id;
-        """, ("hydro_meteo_pipeline", "ingest_meteo", date, source_file))
+        """, ("hydro_meteo_pipeline", "ingest_meteo", target_date, source_file))
         log_id = cursor.fetchone()[0]
         conn.commit()
 
         try:
             with open(file_path, encoding="utf-8") as f:
                 records = json.load(f)
+
+            rows_processed = len(records)
 
             sql = """
                 INSERT INTO bronze.meteo (
@@ -266,7 +332,7 @@ def hydro_meteo_pipeline():
                     loaded_at        = NOW();
             """
 
-            rows = 0
+            rows_loaded = 0
             for r in records:
                 cursor.execute(sql, (
                     r["jaam_kood"],
@@ -281,16 +347,16 @@ def hydro_meteo_pipeline():
                     r.get("element_yhik_eng"),
                     r.get("avaandmed_ts"),
                 ))
-                rows += 1
+                rows_loaded += 1
 
             cursor.execute("""
                 UPDATE bronze.etl_log
-                SET finished_at = NOW(), rows_loaded = %s, status = 'success'
+                SET finished_at = NOW(), rows_processed = %s, rows_loaded = %s, status = 'success'
                 WHERE id = %s;
-            """, (rows, log_id))
+            """, (rows_processed, rows_loaded, log_id))
             conn.commit()
-            log.info("Ingested %d rows into bronze.meteo from %s", rows, source_file)
-            return rows
+            log.info("Ingested %d rows into bronze.meteo from %s", rows_loaded, source_file)
+            return rows_loaded
 
         except Exception as e:
             cursor.execute("""
@@ -305,28 +371,61 @@ def hydro_meteo_pipeline():
             conn.close()
 
     # -------------------------------------------------------------------------
-    # Task 3 — Run dbt (asset-driven, triggers when both bronze assets ready)
+    # Task 3 — Run dbt (triggers when both bronze assets ready)
     # -------------------------------------------------------------------------
     @task()
     def run_dbt(hydro_rows: int, meteo_rows: int) -> None:
         import subprocess
-        log.info("Running dbt build (hydro_rows=%d, meteo_rows=%d)", hydro_rows, meteo_rows)
-        result = subprocess.run(
-            [
-                "dbt", "build",
-                "--project-dir", "/opt/airflow/dbt_project",
-                "--profiles-dir", "/home/airflow/.dbt",
-                "--log-path", "/tmp/dbt_logs",
-                "--target-path", "/tmp/dbt_target"
-            ],
-            capture_output=True,
-            text=True,
-        )
-        log.info(result.stdout)
-        if result.returncode != 0:
-            log.error(result.stderr)
-            raise RuntimeError(f"dbt build failed:\n{result.stderr}")
-        log.info("dbt build completed successfully")
+
+        hook = PostgresHook(postgres_conn_id=CONN_ID)
+        conn = hook.get_conn()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO bronze.etl_log (dag_id, task_id, status)
+            VALUES (%s, %s, 'running') RETURNING id;
+        """, ("hydro_meteo_pipeline", "run_dbt"))
+        log_id = cursor.fetchone()[0]
+        conn.commit()
+
+        try:
+            log.info("Running dbt build (hydro_rows=%d, meteo_rows=%d)", hydro_rows, meteo_rows)
+            result = subprocess.run(
+                [
+                    "dbt", "build",
+                    "--project-dir", "/opt/airflow/dbt_project",
+                    "--profiles-dir", "/home/airflow/.dbt",
+                    "--log-path", "/tmp/dbt_logs",
+                    "--target-path", "/tmp/dbt_target"
+                ],
+                capture_output=True,
+                text=True,
+            )
+            log.info(result.stdout)
+
+            if result.returncode != 0:
+                log.error(result.stderr)
+                raise RuntimeError(f"dbt build failed:\n{result.stderr}")
+
+            cursor.execute("""
+                UPDATE bronze.etl_log
+                SET finished_at = NOW(), status = 'success'
+                WHERE id = %s;
+            """, (log_id,))
+            conn.commit()
+            log.info("dbt build completed successfully")
+
+        except Exception as e:
+            cursor.execute("""
+                UPDATE bronze.etl_log
+                SET finished_at = NOW(), status = 'error', error_message = %s
+                WHERE id = %s;
+            """, (str(e), log_id))
+            conn.commit()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
 
     # -------------------------------------------------------------------------
     # Task dependencies
