@@ -59,7 +59,7 @@ def hydro_meteo_pipeline():
         retry_exponential_backoff=True,
     )
     def fetch_hydro(data_interval_start=None) -> str:
-        date = data_interval_start.date()
+        date = data_interval_start.date() - timedelta(days=1)
         date_next = date + timedelta(days=1)
 
         params = [
@@ -95,7 +95,7 @@ def hydro_meteo_pipeline():
         retry_exponential_backoff=True,
     )
     def fetch_meteo(data_interval_start=None) -> str:
-        date = data_interval_start.date()
+        date = data_interval_start.date() - timedelta(days=1)
 
         params = {
             "aasta": f"eq.{date.year}",
