@@ -453,6 +453,8 @@ services:
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
       GRAPH_SERVICE_IMPL: elasticsearch
+      DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+      DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
 
   # ---------------------------------------------------------------------------
   # DataHub GMS — backend metadata service (REST API)
@@ -481,6 +483,8 @@ services:
       ELASTICSEARCH_PORT: "9200"
       GRAPH_SERVICE_IMPL: elasticsearch
       METADATA_SERVICE_AUTH_ENABLED: "false"
+      DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+      DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       JAVA_OPTS: -Xms512m -Xmx1g
     healthcheck:
       test: ["CMD-SHELL", "curl -sS --fail http://localhost:8080/health"]
@@ -503,7 +507,7 @@ services:
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: "8080"
       DATAHUB_SYSTEM_CLIENT_ID: __datahub-system
-      DATAHUB_SYSTEM_CLIENT_SECRET: JohnSnowKnowsNothing
+      DATAHUB_SYSTEM_CLIENT_SECRET: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       KAFKA_BOOTSTRAP_SERVER: datahub-broker:29092
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-schema-registry:8081
       METADATA_SERVICE_AUTH_ENABLED: "false"
@@ -524,10 +528,12 @@ services:
     environment:
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: "8080"
-      DATAHUB_SECRET: YouKnowNothingJohnSnow
+      DATAHUB_SECRET: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       APP_VERSION: "1"
       AUTH_SESSION_TTL_HOURS: "24"
       MAX_SESSION_TOKEN_AGE: 24h
+      DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+      DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       METADATA_SERVICE_AUTH_ENABLED: "false"
     healthcheck:
