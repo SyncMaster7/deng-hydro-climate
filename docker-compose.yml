@@ -584,6 +584,8 @@ services:
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       METADATA_SERVICE_AUTH_ENABLED: "false"
+    volumes:
+      - /srv/deng-hydro-climate/datahub/user.props:/datahub-frontend/conf/user.props
     healthcheck:
       test: ["CMD-SHELL", "curl -sS --fail http://localhost:9002/api/v2/auth/me || true"]
       interval: 30s
