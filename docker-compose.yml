@@ -422,11 +422,57 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # DataHub Upgrade — runs 38 system update steps (Elasticsearch index builds etc.)
-  # One-shot container: exits 0 when done, does not stay running
-  # Runs in parallel with GMS — GMS runs Liquibase (MySQL schema), upgrade builds
-  # Elasticsearch indices. They coordinate internally via Kafka.
-  # On subsequent starts: upgrade is skipped (already completed), GMS starts normally.
+  # DataHub MySQL Setup — one-shot container that creates the MySQL schema
+  # (metadata_aspect_v2 and related tables) before GMS or upgrade start
+  # ---------------------------------------------------------------------------
+  datahub-mysql-setup:
+    image: acryldata/datahub-mysql-setup:head
+    container_name: deng-datahub-mysql-setup
+    restart: "no"
+    depends_on:
+      datahub-mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: datahub-mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USERNAME: datahub
+      MYSQL_PASSWORD: datahub
+      DATAHUB_DB_NAME: datahub
+
+  # ---------------------------------------------------------------------------
+  # DataHub Elasticsearch Setup — one-shot container that creates ES indices
+  # ---------------------------------------------------------------------------
+  datahub-elasticsearch-setup:
+    image: acryldata/datahub-elasticsearch-setup:head
+    container_name: deng-datahub-elasticsearch-setup
+    restart: "no"
+    depends_on:
+      datahub-elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOST: datahub-elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_USE_SSL: "false"
+
+  # ---------------------------------------------------------------------------
+  # DataHub Kafka Setup — one-shot container that creates Kafka topics
+  # ---------------------------------------------------------------------------
+  datahub-kafka-setup:
+    image: acryldata/datahub-kafka-setup:head
+    container_name: deng-datahub-kafka-setup
+    restart: "no"
+    depends_on:
+      datahub-broker:
+        condition: service_healthy
+      datahub-schema-registry:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVER: datahub-broker:29092
+      KAFKA_ZOOKEEPER_CONNECT: datahub-zookeeper:2181
+
+  # ---------------------------------------------------------------------------
+  # DataHub Upgrade — runs SystemUpdate steps after schema is ready
+  # Depends on all three setup containers completing successfully first
   # ---------------------------------------------------------------------------
   datahub-upgrade:
     image: acryldata/datahub-upgrade:head
@@ -434,14 +480,12 @@ services:
     restart: "no"
     command: ["-u", "SystemUpdate"]
     depends_on:
-      datahub-elasticsearch:
-        condition: service_healthy
-      datahub-mysql:
-        condition: service_healthy
-      datahub-broker:
-        condition: service_healthy
-      datahub-schema-registry:
-        condition: service_healthy
+      datahub-mysql-setup:
+        condition: service_completed_successfully
+      datahub-elasticsearch-setup:
+        condition: service_completed_successfully
+      datahub-kafka-setup:
+        condition: service_completed_successfully
     environment:
       ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
       EBEAN_DATASOURCE_HOST: datahub-mysql:3306
@@ -456,6 +500,7 @@ services:
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
       GRAPH_SERVICE_IMPL: elasticsearch
+      DATAHUB_SQL_SETUP_ENABLED: "true"
       DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
 
@@ -469,14 +514,8 @@ services:
     container_name: deng-datahub-gms
     restart: unless-stopped
     depends_on:
-      datahub-elasticsearch:
-        condition: service_healthy
-      datahub-mysql:
-        condition: service_healthy
-      datahub-broker:
-        condition: service_healthy
-      datahub-schema-registry:
-        condition: service_healthy
+      datahub-upgrade:
+        condition: service_completed_successfully
     ports:
       - "8090:8080"
     environment:
