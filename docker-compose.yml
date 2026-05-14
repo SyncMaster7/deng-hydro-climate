@@ -422,41 +422,6 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # DataHub Upgrade — runs DB migrations on first start and after upgrades
-  # One-shot container: exits 0 when done, does not stay running
-  # ---------------------------------------------------------------------------
-  datahub-upgrade:
-    image: acryldata/datahub-upgrade:head
-    container_name: deng-datahub-upgrade
-    restart: "no"
-    command: ["-u", "SystemUpdate"]
-    depends_on:
-      datahub-elasticsearch:
-        condition: service_healthy
-      datahub-mysql:
-        condition: service_healthy
-      datahub-broker:
-        condition: service_healthy
-      datahub-schema-registry:
-        condition: service_healthy
-    environment:
-      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
-      EBEAN_DATASOURCE_HOST: datahub-mysql:3306
-      EBEAN_DATASOURCE_USERNAME: datahub
-      EBEAN_DATASOURCE_PASSWORD: datahub
-      EBEAN_DATASOURCE_URL: jdbc:mysql://datahub-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
-      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
-      KAFKA_BOOTSTRAP_SERVER: datahub-broker:29092
-      KAFKA_SCHEMAREGISTRY_URL: http://datahub-schema-registry:8081
-      ELASTICSEARCH_HOST: datahub-elasticsearch
-      ELASTICSEARCH_PORT: "9200"
-      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
-      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
-      GRAPH_SERVICE_IMPL: elasticsearch
-      DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
-      DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
-
-  # ---------------------------------------------------------------------------
   # DataHub GMS — backend metadata service (REST API)
   # Exposed on 8090 (8080 is taken by Airflow)
   # Also reachable by ingestion recipes as http://datahub-gms:8080 internally
@@ -466,8 +431,14 @@ services:
     container_name: deng-datahub-gms
     restart: unless-stopped
     depends_on:
-      datahub-upgrade:
-        condition: service_completed_successfully
+      datahub-elasticsearch:
+        condition: service_healthy
+      datahub-mysql:
+        condition: service_healthy
+      datahub-broker:
+        condition: service_healthy
+      datahub-schema-registry:
+        condition: service_healthy
     ports:
       - "8090:8080"
     environment:
