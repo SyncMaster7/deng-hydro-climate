@@ -422,9 +422,11 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # DataHub Upgrade — creates DB schema on first start, runs migrations on upgrade
+  # DataHub Upgrade — runs 38 system update steps (Elasticsearch index builds etc.)
   # One-shot container: exits 0 when done, does not stay running
-  # GMS waits for this to complete before starting (WaitForSystemUpdateStep)
+  # Runs in parallel with GMS — GMS runs Liquibase (MySQL schema), upgrade builds
+  # Elasticsearch indices. They coordinate internally via Kafka.
+  # On subsequent starts: upgrade is skipped (already completed), GMS starts normally.
   # ---------------------------------------------------------------------------
   datahub-upgrade:
     image: acryldata/datahub-upgrade:head
@@ -467,8 +469,14 @@ services:
     container_name: deng-datahub-gms
     restart: unless-stopped
     depends_on:
-      datahub-upgrade:
-        condition: service_completed_successfully
+      datahub-elasticsearch:
+        condition: service_healthy
+      datahub-mysql:
+        condition: service_healthy
+      datahub-broker:
+        condition: service_healthy
+      datahub-schema-registry:
+        condition: service_healthy
     ports:
       - "8090:8080"
     environment:
