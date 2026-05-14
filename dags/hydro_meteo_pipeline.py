@@ -46,10 +46,86 @@ asset_meteo_bronze   = Asset("bronze/meteo")
 
 
 # -----------------------------------------------------------------------------
-# Helper — ETL log context manager
-# Eliminates the repeated insert-running / update-success / update-error
-# pattern that was copy-pasted across all five tasks.
+# Helpers — ETL log management
+#
+# Two patterns are needed:
+#
+# 1. etl_log_context — context manager for ingest and dbt tasks where the
+#    DB connection stays open for the entire task duration. Handles
+#    insert-running / update-success / update-error / close automatically.
+#
+# 2. etl_log_start / etl_log_finish / etl_log_error — plain functions for
+#    fetch tasks, where the connection must be closed before the HTTP call
+#    (to avoid holding an idle connection during a potentially slow API
+#    request) and re-opened afterwards to write the result.
 # -----------------------------------------------------------------------------
+
+def etl_log_start(
+    dag_id: str,
+    task_id: str,
+    target_date: date | None = None,
+    source_file: str | None = None,
+) -> int:
+    """Insert a 'running' log entry and return its id."""
+    hook = PostgresHook(postgres_conn_id=CONN_ID)
+    conn = hook.get_conn()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO bronze.etl_log (dag_id, task_id, target_date, source_file, status)
+            VALUES (%s, %s, %s, %s, 'running') RETURNING id;
+            """,
+            (dag_id, task_id, target_date, source_file),
+        )
+        log_id = cursor.fetchone()[0]
+        conn.commit()
+        return log_id
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def etl_log_finish(log_id: int, rows_processed: int | None = None, source_file: str | None = None) -> None:
+    """Mark a log entry as success."""
+    hook = PostgresHook(postgres_conn_id=CONN_ID)
+    conn = hook.get_conn()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            UPDATE bronze.etl_log
+            SET finished_at = NOW(), status = 'success', rows_processed = %s, source_file = %s
+            WHERE id = %s;
+            """,
+            (rows_processed, source_file, log_id),
+        )
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def etl_log_error(log_id: int, error: Exception) -> None:
+    """Mark a log entry as error."""
+    hook = PostgresHook(postgres_conn_id=CONN_ID)
+    conn = hook.get_conn()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            UPDATE bronze.etl_log
+            SET finished_at = NOW(), status = 'error', error_message = %s
+            WHERE id = %s;
+            """,
+            (str(error), log_id),
+        )
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @contextmanager
 def etl_log_context(
     dag_id: str,
@@ -57,6 +133,7 @@ def etl_log_context(
     target_date: date | None = None,
     source_file: str | None = None,
 ) -> Iterator[tuple]:
+    """Context manager for tasks that keep the DB connection open throughout."""
     hook = PostgresHook(postgres_conn_id=CONN_ID)
     conn = hook.get_conn()
     cursor = conn.cursor()
@@ -125,13 +202,12 @@ def hydro_meteo_pipeline():
             f"&timeline_ts_local=lt.{date_next}T00:00:00"
         )
 
-        with etl_log_context("hydro_meteo_pipeline", "fetch_hydro", target_date) as (cursor, conn, log_id):
+        # Write 'running' entry then immediately release the connection
+        # so it is not held idle during the HTTP request (up to 60s timeout)
+        log_id = etl_log_start("hydro_meteo_pipeline", "fetch_hydro", target_date)
+
+        try:
             log.info("Fetching hydro data for local date %s", target_date)
-
-            # DB connection is released while waiting for the API response
-            cursor.close()
-            conn.close()
-
             response = requests.get(f"{HYDRO_API_URL}?{query}", timeout=60)
             response.raise_for_status()
             data = response.json()
@@ -150,24 +226,13 @@ def hydro_meteo_pipeline():
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False)
 
-            # Re-open connection to write final log update
-            hook = PostgresHook(postgres_conn_id=CONN_ID)
-            conn2 = hook.get_conn()
-            cursor2 = conn2.cursor()
-            cursor2.execute(
-                """
-                UPDATE bronze.etl_log
-                SET finished_at = NOW(), rows_processed = %s, source_file = %s
-                WHERE id = %s;
-                """,
-                (rows_processed, os.path.basename(file_path), log_id),
-            )
-            conn2.commit()
-            cursor2.close()
-            conn2.close()
-
+            etl_log_finish(log_id, rows_processed=rows_processed, source_file=os.path.basename(file_path))
             log.info("Saved hydro raw file: %s", file_path)
             return file_path
+
+        except Exception as e:
+            etl_log_error(log_id, e)
+            raise
 
     # -------------------------------------------------------------------------
     # Task 1b — Fetch meteo data for target date, save to raw landing zone
@@ -187,13 +252,12 @@ def hydro_meteo_pipeline():
             "paev":  f"eq.{target_date.day}",
         }
 
-        with etl_log_context("hydro_meteo_pipeline", "fetch_meteo", target_date) as (cursor, conn, log_id):
+        # Write 'running' entry then immediately release the connection
+        # so it is not held idle during the HTTP request (up to 60s timeout)
+        log_id = etl_log_start("hydro_meteo_pipeline", "fetch_meteo", target_date)
+
+        try:
             log.info("Fetching meteo data for %s", target_date)
-
-            # DB connection is released while waiting for the API response
-            cursor.close()
-            conn.close()
-
             response = requests.get(METEO_API_URL, params=params, timeout=60)
             response.raise_for_status()
             data = response.json()
@@ -212,24 +276,13 @@ def hydro_meteo_pipeline():
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False)
 
-            # Re-open connection to write final log update
-            hook = PostgresHook(postgres_conn_id=CONN_ID)
-            conn2 = hook.get_conn()
-            cursor2 = conn2.cursor()
-            cursor2.execute(
-                """
-                UPDATE bronze.etl_log
-                SET finished_at = NOW(), rows_processed = %s, source_file = %s
-                WHERE id = %s;
-                """,
-                (rows_processed, os.path.basename(file_path), log_id),
-            )
-            conn2.commit()
-            cursor2.close()
-            conn2.close()
-
+            etl_log_finish(log_id, rows_processed=rows_processed, source_file=os.path.basename(file_path))
             log.info("Saved meteo raw file: %s", file_path)
             return file_path
+
+        except Exception as e:
+            etl_log_error(log_id, e)
+            raise
 
     # -------------------------------------------------------------------------
     # Task 2a — Ingest hydro raw file into bronze.hydro
