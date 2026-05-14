@@ -11,6 +11,7 @@
 # Schedule: daily at 06:00 UTC — each run fetches data_interval_start - 3 days
 # NOTE: API publishes data with ~43h lag, so days=3 (72h buffer) ensures a
 #       complete day is always available before ingestion.
+# Backfill start: 2025-01-01
 # =============================================================================
 
 import json
@@ -176,7 +177,7 @@ def etl_log_context(
     dag_id="hydro_meteo_pipeline",
     description="Daily fetch → raw file → bronze ingestion → dbt for hydro and meteo data",
     schedule="0 6 * * *",
-    start_date=pendulum.datetime(2026, 1, 1, tz="UTC"),
+    start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     catchup=True,
     max_active_runs=1,
     tags=["ingestion", "bronze"],
@@ -207,8 +208,9 @@ def hydro_meteo_pipeline():
         log_id = etl_log_start("hydro_meteo_pipeline", "fetch_hydro", target_date)
 
         try:
-            log.info("Fetching hydro data for local date %s", target_date)
-            response = requests.get(f"{HYDRO_API_URL}?{query}", timeout=60)
+            full_url = f"{HYDRO_API_URL}?{query}"
+            log.info("Fetching hydro data for local date %s — URL: %s", target_date, full_url)
+            response = requests.get(full_url, timeout=60)
             response.raise_for_status()
             data = response.json()
 
@@ -257,7 +259,8 @@ def hydro_meteo_pipeline():
         log_id = etl_log_start("hydro_meteo_pipeline", "fetch_meteo", target_date)
 
         try:
-            log.info("Fetching meteo data for %s", target_date)
+            prepared = requests.Request("GET", METEO_API_URL, params=params).prepare()
+            log.info("Fetching meteo data for %s — URL: %s", target_date, prepared.url)
             response = requests.get(METEO_API_URL, params=params, timeout=60)
             response.raise_for_status()
             data = response.json()
