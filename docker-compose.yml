@@ -1,6 +1,16 @@
 # deng-hydro-climate — docker-compose.yml
-# Airflow 3.2.1 + dbt-postgres + pgduckdb analytics DB
+# Airflow 3.2.1 + dbt-postgres + pgduckdb analytics DB + Apache Superset + DataHub
 # All passwords and secrets via .env — never hardcode here
+#
+# Ports in use:
+#   5432  — analytics-db (PostgreSQL)
+#   5433  — airflow-db (PostgreSQL)
+#   5434  — superset-db (PostgreSQL)
+#   8080  — Airflow UI + REST API
+#   8088  — Superset UI
+#   8090  — DataHub GMS (metadata REST API)
+#   9002  — DataHub Frontend (UI)
+#   9092  — Kafka broker
 
 x-airflow-common: &airflow-common
   build: ./docker/airflow
@@ -35,6 +45,13 @@ x-airflow-common: &airflow-common
     airflow-db:
       condition: service_healthy
   user: "${AIRFLOW_UID:-50000}:0"
+
+volumes:
+  # DataHub named volumes — persist DataHub internal state across restarts
+  datahub-broker:
+  datahub-zookeeper:
+  datahub-elasticsearch:
+  datahub-mysql:
 
 services:
 
@@ -283,3 +300,239 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
+  # ===========================================================================
+  # DATAHUB — metadata platform
+  # UI:  http://192.168.1.93:9002  (login: datahub / datahub)
+  # GMS: http://192.168.1.93:8090  (REST API — used by ingestion recipes)
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # DataHub ZooKeeper — Kafka coordination
+  # ---------------------------------------------------------------------------
+  datahub-zookeeper:
+    image: confluentinc/cp-zookeeper:7.9.2
+    container_name: deng-datahub-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - datahub-zookeeper:/var/lib/zookeeper/data
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # DataHub Kafka broker — event streaming backbone
+  # ---------------------------------------------------------------------------
+  datahub-broker:
+    image: confluentinc/cp-kafka:7.9.2
+    container_name: deng-datahub-broker
+    restart: unless-stopped
+    depends_on:
+      datahub-zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: datahub-zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://datahub-broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+      KAFKA_MESSAGE_MAX_BYTES: 5242880
+      KAFKA_MAX_MESSAGE_BYTES: 5242880
+    ports:
+      - "9092:9092"
+    volumes:
+      - datahub-broker:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # DataHub Schema Registry — Kafka schema management
+  # ---------------------------------------------------------------------------
+  datahub-schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.2
+    container_name: deng-datahub-schema-registry
+    restart: unless-stopped
+    depends_on:
+      datahub-broker:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: datahub-schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: datahub-broker:29092
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s --fail http://localhost:8081/subjects"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # DataHub Elasticsearch — search and graph index
+  # ---------------------------------------------------------------------------
+  datahub-elasticsearch:
+    image: elasticsearch:7.10.1
+    container_name: deng-datahub-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      xpack.security.enabled: "false"
+    volumes:
+      - datahub-elasticsearch:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS --fail http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # DataHub MySQL — DataHub internal metadata store
+  # NOTE: this is DataHub's own store, completely separate from analytics-db
+  # ---------------------------------------------------------------------------
+  datahub-mysql:
+    image: mysql:8.2
+    container_name: deng-datahub-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: datahub
+      MYSQL_USER: datahub
+      MYSQL_PASSWORD: datahub
+      MYSQL_ROOT_PASSWORD: datahub
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
+    volumes:
+      - datahub-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u datahub -pdatahub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # DataHub Upgrade — runs DB migrations on first start and after upgrades
+  # One-shot container: exits 0 when done, does not stay running
+  # ---------------------------------------------------------------------------
+  datahub-upgrade:
+    image: acryldata/datahub-upgrade:head
+    container_name: deng-datahub-upgrade
+    restart: "no"
+    command: ["-u", "SystemUpdate"]
+    depends_on:
+      datahub-elasticsearch:
+        condition: service_healthy
+      datahub-mysql:
+        condition: service_healthy
+      datahub-broker:
+        condition: service_healthy
+      datahub-schema-registry:
+        condition: service_healthy
+    environment:
+      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+      EBEAN_DATASOURCE_HOST: datahub-mysql:3306
+      EBEAN_DATASOURCE_USERNAME: datahub
+      EBEAN_DATASOURCE_PASSWORD: datahub
+      EBEAN_DATASOURCE_URL: jdbc:mysql://datahub-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+      KAFKA_BOOTSTRAP_SERVER: datahub-broker:29092
+      KAFKA_SCHEMAREGISTRY_URL: http://datahub-schema-registry:8081
+      ELASTICSEARCH_HOST: datahub-elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
+      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
+      GRAPH_SERVICE_IMPL: elasticsearch
+
+  # ---------------------------------------------------------------------------
+  # DataHub GMS — backend metadata service (REST API)
+  # Exposed on 8090 (8080 is taken by Airflow)
+  # Also reachable by ingestion recipes as http://datahub-gms:8080 internally
+  # ---------------------------------------------------------------------------
+  datahub-gms:
+    image: acryldata/datahub-gms:head
+    container_name: deng-datahub-gms
+    restart: unless-stopped
+    depends_on:
+      datahub-upgrade:
+        condition: service_completed_successfully
+    ports:
+      - "8090:8080"
+    environment:
+      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+      EBEAN_DATASOURCE_HOST: datahub-mysql:3306
+      EBEAN_DATASOURCE_USERNAME: datahub
+      EBEAN_DATASOURCE_PASSWORD: datahub
+      EBEAN_DATASOURCE_URL: jdbc:mysql://datahub-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+      KAFKA_BOOTSTRAP_SERVER: datahub-broker:29092
+      KAFKA_SCHEMAREGISTRY_URL: http://datahub-schema-registry:8081
+      ELASTICSEARCH_HOST: datahub-elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      GRAPH_SERVICE_IMPL: elasticsearch
+      METADATA_SERVICE_AUTH_ENABLED: "false"
+      JAVA_OPTS: -Xms512m -Xmx1g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS --fail http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # ---------------------------------------------------------------------------
+  # DataHub Actions — event-driven automation (reacts to metadata changes)
+  # ---------------------------------------------------------------------------
+  datahub-actions:
+    image: acryldata/datahub-actions:head
+    container_name: deng-datahub-actions
+    restart: unless-stopped
+    depends_on:
+      datahub-gms:
+        condition: service_healthy
+    environment:
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: "8080"
+      DATAHUB_SYSTEM_CLIENT_ID: __datahub-system
+      DATAHUB_SYSTEM_CLIENT_SECRET: JohnSnowKnowsNothing
+      KAFKA_BOOTSTRAP_SERVER: datahub-broker:29092
+      KAFKA_SCHEMAREGISTRY_URL: http://datahub-schema-registry:8081
+      METADATA_SERVICE_AUTH_ENABLED: "false"
+
+  # ---------------------------------------------------------------------------
+  # DataHub Frontend — web UI
+  # Exposed on 9002 (no conflict with existing services)
+  # ---------------------------------------------------------------------------
+  datahub-frontend:
+    image: acryldata/datahub-frontend-react:head
+    container_name: deng-datahub-frontend
+    restart: unless-stopped
+    depends_on:
+      datahub-gms:
+        condition: service_healthy
+    ports:
+      - "9002:9002"
+    environment:
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: "8080"
+      DATAHUB_SECRET: YouKnowNothingJohnSnow
+      APP_VERSION: "1"
+      AUTH_SESSION_TTL_HOURS: "24"
+      MAX_SESSION_TOKEN_AGE: 24h
+      JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
+      METADATA_SERVICE_AUTH_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS --fail http://localhost:9002/api/v2/auth/me || true"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
