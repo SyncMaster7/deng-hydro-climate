@@ -426,7 +426,7 @@ services:
   # (metadata_aspect_v2 and related tables) before GMS or upgrade start
   # ---------------------------------------------------------------------------
   datahub-mysql-setup:
-    image: acryldata/datahub-mysql-setup:v1.5.0.3
+    image: acryldata/datahub-mysql-setup:head
     container_name: deng-datahub-mysql-setup
     restart: "no"
     depends_on:
@@ -443,7 +443,7 @@ services:
   # DataHub Elasticsearch Setup — one-shot container that creates ES indices
   # ---------------------------------------------------------------------------
   datahub-elasticsearch-setup:
-    image: acryldata/datahub-elasticsearch-setup:v1.5.0.3
+    image: acryldata/datahub-elasticsearch-setup:head
     container_name: deng-datahub-elasticsearch-setup
     restart: "no"
     depends_on:
@@ -458,7 +458,7 @@ services:
   # DataHub Kafka Setup — one-shot container that creates Kafka topics
   # ---------------------------------------------------------------------------
   datahub-kafka-setup:
-    image: acryldata/datahub-kafka-setup:v1.5.0.3
+    image: acryldata/datahub-kafka-setup:head
     container_name: deng-datahub-kafka-setup
     restart: "no"
     depends_on:
