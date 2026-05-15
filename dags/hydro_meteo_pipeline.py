@@ -386,6 +386,28 @@ def hydro_meteo_pipeline():
 
         rows_processed = len(records)
 
+        # Deduplicate by unique key before UPSERT.
+        # The source API (f_kliima_tund) occasionally publishes corrections:
+        # the same (jaam_kood, aasta, kuu, paev, tund, element_kood) appears
+        # twice in a single day's response with a later avaandmed_ts and a
+        # revised vaartus (confirmed for AJROOM01 / SDUR1H / 2026-04-29).
+        # execute_values + ON CONFLICT DO UPDATE raises CardinalityViolation
+        # when two rows in the same batch target the same unique key.
+        # Fix: keep the row with the latest avaandmed_ts (the correction wins).
+        seen: dict[tuple, dict] = {}
+        for r in records:
+            key = (r["jaam_kood"], r["aasta"], r["kuu"], r["paev"], r["tund"], r["element_kood"])
+            if key not in seen or r["avaandmed_ts"] > seen[key]["avaandmed_ts"]:
+                seen[key] = r
+        dedup_count = rows_processed - len(seen)
+        if dedup_count:
+            log.warning(
+                "Meteo dedup: removed %d duplicate row(s) for %s — keeping latest avaandmed_ts",
+                dedup_count,
+                target_date,
+            )
+        records = list(seen.values())
+
         sql = """
             INSERT INTO bronze.meteo (
                 jaam_kood,
@@ -487,3 +509,4 @@ def hydro_meteo_pipeline():
 
 
 hydro_meteo_pipeline()
+
