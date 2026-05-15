@@ -534,6 +534,7 @@ services:
       DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       JAVA_OPTS: -Xms512m -Xmx1g
+      SHOW_ACCESS_MANAGEMENT: "true"
     healthcheck:
       test: ["CMD-SHELL", "curl -sS --fail http://localhost:8080/health"]
       interval: 30s
