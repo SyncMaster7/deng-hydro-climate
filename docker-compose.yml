@@ -541,6 +541,13 @@ services:
       ELASTICSEARCH_PORT: "9200"
       ELASTICSEARCH_PROTOCOL: http
       ELASTICSEARCH_USE_SSL: "false"
+      # Ingestion recipe credentials — passed through from .env
+      ANALYTICS_DB_USER: ${ANALYTICS_DB_USER}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD}
 
   # ---------------------------------------------------------------------------
   # DataHub Frontend — web UI
