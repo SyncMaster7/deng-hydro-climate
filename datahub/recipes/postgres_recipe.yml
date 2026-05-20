@@ -1,0 +1,32 @@
+# DataHub ingestion — PostgreSQL (analytics DB)
+# Source: deng-analytics-db (hydro_climate_db)
+# Ingests: bronze, silver, gold, ref schemas — tables, columns, descriptions
+# Run: docker compose exec datahub-actions datahub ingest -c /datahub/recipes/postgres_recipe.yml
+
+pipeline_name: deng_postgres
+
+source:
+  type: postgres
+  config:
+    host_port: "analytics-db:5432"
+    database: "hydro_climate_db"
+    username: "analytics"
+    password: "${ANALYTICS_DB_PASSWORD}"
+    schema_pattern:
+      allow:
+        - "bronze"
+        - "silver"
+        - "gold"
+        - "ref"
+    include_tables: true
+    include_views: true
+    include_view_lineage: true
+    profiling:
+      enabled: false
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://datahub-gms:8080"

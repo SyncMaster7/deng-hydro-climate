@@ -1,0 +1,31 @@
+# DataHub ingestion — dbt
+# Source: dbt project artifacts (manifest.json, catalog.json, run_results.json)
+# Ingests: model lineage, column descriptions, test results
+# Run: docker compose exec datahub-actions datahub ingest -c /datahub/recipes/dbt_recipe.yml
+#
+# NOTE: dbt artifacts must be generated first on the server:
+#   docker compose exec dbt dbt docs generate --project-dir /dbt --profiles-dir /root/.dbt --target-path /tmp/dbt-target
+#   docker compose exec dbt ls /tmp/dbt-target/
+# Then copy artifacts into datahub/artifacts/ so they are reachable inside datahub-actions.
+# datahub-actions does NOT have the dbt project mounted — artifacts must be pre-generated.
+
+pipeline_name: deng_dbt
+
+source:
+  type: dbt
+  config:
+    manifest_path: "/datahub/artifacts/manifest.json"
+    catalog_path: "/datahub/artifacts/catalog.json"
+    run_results_paths:
+      - "/datahub/artifacts/run_results.json"
+    target_platform: "postgres"
+    target_platform_instance: "deng-analytics-db"
+    # Match the platform instance used in postgres_recipe so lineage links up
+    write_semantics: OVERRIDE
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://datahub-gms:8080"
