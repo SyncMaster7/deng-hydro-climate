@@ -382,7 +382,7 @@ services:
   # DataHub Elasticsearch — search and graph index
   # ---------------------------------------------------------------------------
   datahub-elasticsearch:
-    image: elasticsearch:7.17.29
+    image: elasticsearch:7.17.10
     container_name: deng-datahub-elasticsearch
     restart: unless-stopped
     environment:
