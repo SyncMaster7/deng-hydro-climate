@@ -523,6 +523,8 @@ services:
     depends_on:
       datahub-gms:
         condition: service_healthy
+    volumes:
+      - ./datahub:/datahub:ro
     environment:
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: "8080"

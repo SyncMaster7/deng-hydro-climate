@@ -1,0 +1,31 @@
+# DataHub ingestion — Airflow
+# Source: deng-airflow-apiserver (REST API v2)
+# Ingests: DAG metadata, task lineage, pipeline observability
+# Run: docker compose exec datahub-actions datahub ingest -c /datahub/recipes/airflow_recipe.yml
+#
+# Airflow 3.x uses the v2 API. Auth is Basic.
+# Only active (non-paused) DAGs are ingested by default — set dag_ids or remove filter to get all.
+
+pipeline_name: deng_airflow
+
+source:
+  type: airflow
+  config:
+    # Airflow REST API endpoint — internal Docker hostname
+    connection:
+      conn_id: "airflow_rest"
+      conn_type: "http"
+      host: "airflow-apiserver"
+      port: 8080
+      login: "${AIRFLOW_ADMIN_USER}"
+      password: "${AIRFLOW_ADMIN_PASSWORD}"
+      schema: "http"
+    # Ingest all DAGs (paused and active)
+    dag_ids: []
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://datahub-gms:8080"
