@@ -382,7 +382,7 @@ services:
   # DataHub Elasticsearch — search and graph index
   # ---------------------------------------------------------------------------
   datahub-elasticsearch:
-    image: elasticsearch:7.10.1
+    image: elasticsearch:7.17.29
     container_name: deng-datahub-elasticsearch
     restart: unless-stopped
     environment:
@@ -535,6 +535,9 @@ services:
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       JAVA_OPTS: -Xms512m -Xmx1g
       SHOW_ACCESS_MANAGEMENT: "true"
+      PE_CONSUMER_ENABLED: "true"
+      THEME_V2_ENABLED: "true"
+      THEME_V2_DEFAULT: "true"
     healthcheck:
       test: ["CMD-SHELL", "curl -sS --fail http://localhost:8080/health"]
       interval: 30s
@@ -555,10 +558,14 @@ services:
     environment:
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: "8080"
-      DATAHUB_SYSTEM_CLIENT_ID: __datahub-system
-      DATAHUB_SYSTEM_CLIENT_SECRET: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+      DATAHUB_GMS_PROTOCOL: http
+      DATAHUB_SYSTEM_CLIENT_ID: __datahub_system
+      DATAHUB_SYSTEM_CLIENT_SECRET: JohnSnowKnowsNothing
       KAFKA_BOOTSTRAP_SERVER: datahub-broker:29092
-      KAFKA_SCHEMAREGISTRY_URL: http://datahub-schema-registry:8081
+      KAFKA_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
+      SCHEMA_REGISTRY_URL: http://datahub-schema-registry:8081
+      METADATA_AUDIT_EVENT_NAME: MetadataAuditEvent_v4
+      METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME: MetadataChangeLog_Versioned_v1
       METADATA_SERVICE_AUTH_ENABLED: "false"
 
   # ---------------------------------------------------------------------------
