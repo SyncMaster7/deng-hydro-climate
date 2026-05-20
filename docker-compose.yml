@@ -516,7 +516,7 @@ services:
   # DataHub Actions — event-driven automation (doc propagation, ingestion executor)
   # ---------------------------------------------------------------------------
   datahub-actions:
-    image: acryldata/datahub-actions:head
+    build: ./docker/datahub-actions
     container_name: deng-datahub-actions
     restart: unless-stopped
     hostname: datahub-actions
