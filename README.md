@@ -1,4 +1,4 @@
-# deng-hydro-climate — Eesti jõgede hüdroloogilise seire andmetorustik
+# Eesti jõgede hüdroloogilise seire andmetorustik
 
 ## Äriküsimus
 
