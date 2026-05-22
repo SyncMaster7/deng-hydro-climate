@@ -43,6 +43,7 @@ x-airflow-common: &airflow-common
     - /data/raw:/data/raw
     - /data/archive:/data/archive
     - ./datahub/artifacts:/opt/airflow/datahub/artifacts
+    - ./datahub/recipes:/opt/airflow/datahub/recipes:ro
   depends_on:
     airflow-db:
       condition: service_healthy
