@@ -12,6 +12,7 @@ source:
     database: "hydro_climate_db"
     username: "analytics"
     password: "${ANALYTICS_DB_PASSWORD}"
+    platform_instance: "deng-analytics-db"
     schema_pattern:
       allow:
         - "bronze"
