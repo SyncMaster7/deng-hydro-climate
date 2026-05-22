@@ -29,7 +29,7 @@ DBT_LOG_PATH     = "/tmp/dbt_logs"
 ARTIFACTS_SRC_DIR = "/tmp/dbt_target"
 ARTIFACTS_DST_DIR = "/opt/airflow/datahub/artifacts"
 
-DATAHUB_RECIPE   = "/datahub/recipes/dbt_recipe.yml"
+DATAHUB_RECIPE   = "/opt/airflow/datahub/recipes/dbt_recipe.yml"
 DATAHUB_GMS_URL  = "http://datahub-gms:8080"
 
 
