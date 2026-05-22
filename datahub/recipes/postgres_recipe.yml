@@ -22,7 +22,7 @@ source:
     include_views: true
     include_view_lineage: true
     profiling:
-      enabled: false
+      enabled: true
     stateful_ingestion:
       enabled: true
 
