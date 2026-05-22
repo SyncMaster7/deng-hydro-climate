@@ -42,6 +42,7 @@ x-airflow-common: &airflow-common
     - ./seeds:/opt/airflow/seeds
     - /data/raw:/data/raw
     - /data/archive:/data/archive
+    - ./datahub/artifacts:/opt/airflow/datahub/artifacts
   depends_on:
     airflow-db:
       condition: service_healthy
