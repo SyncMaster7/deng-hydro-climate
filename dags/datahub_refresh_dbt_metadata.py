@@ -93,15 +93,11 @@ def datahub_refresh_dbt_metadata():
 
         result = subprocess.run(
             [
-                "datahub", "ingest",
+                "/home/airflow/.local/bin/datahub", "ingest",
                 "-c", DATAHUB_RECIPE,
             ],
             capture_output=True,
             text=True,
-            env={
-                "PATH": "/usr/local/bin:/usr/bin:/bin",
-                "HOME": "/home/airflow",
-            },
         )
         log.info(result.stdout)
 
