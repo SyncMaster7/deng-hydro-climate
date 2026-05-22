@@ -36,7 +36,7 @@ Täpsem kirjeldus: [`docs/arhitektuur.md`](docs/arhitektuur.md)
 | Meteoroloogia jaamad (`seeds/meteorological_stations.csv`) | CSV / seed | Ei, staatiline | 25 jaama metaandmed |
 | Seirejaamade vahekaugus | Automaatselt genereeritud (Haversine) | Ei (uuendatakse jaamade muutumise korral) | 3 lähimat meteojaam iga hüdrojaama kohta |
 
-## Stack
+## Tehnoloogiavirn (stack)
 
 | Komponent | Tööriist | Versioon |
 |-----------|---------|---------|
