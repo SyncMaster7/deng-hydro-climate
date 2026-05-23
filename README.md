@@ -1,4 +1,4 @@
-# Eesti jõgede hüdroloogilise seire andmetorustik
+# Eesti hüdroloogilise seire andmetorustik
 
 ## Äriküsimus
 
@@ -22,6 +22,7 @@ flowchart LR
     G --> H[(Silver / Gold)]
     H --> I[Tableau]
     H --> J[DataHub]
+    H --> K[FastAPI]
 ```
 
 Täpsem kirjeldus: [`docs/arhitektuur.md`](docs/arhitektuur.md)
@@ -46,6 +47,7 @@ Täpsem kirjeldus: [`docs/arhitektuur.md`](docs/arhitektuur.md)
 | Näidikulaud | Tableau | — |
 | Näidikulaud | Apache Superset | 6.0.1 |
 | Andmekataloog | DataHub | head (latest) |
+| Avalik REST API | FastAPI + asyncpg + slowapi | 0.115.6 |
 | Konteinerimine | Docker Compose | — |
 | Keel | Python 3 | 3.x |
 | Versioonikontroll | Git / GitHub | — |
@@ -69,9 +71,13 @@ docker compose up -d --build
 ```
 
 **Teenuste aadressid:**
-- Airflow UI: http://localhost:8080
-- Superset: http://localhost:8088
-- DataHub: http://localhost:9002
+
+| Teenus | Avalik URL | Lokaalne arendus |
+|--------|-----------|-----------------|
+| Airflow UI | https://airflow.deng.ee | http://localhost:8080 |
+| Superset | https://superset.deng.ee | http://localhost:8088 |
+| DataHub | https://datahub.deng.ee | http://localhost:9002 |
+| FastAPI / Swagger | https://api.deng.ee/docs | http://localhost:8000/docs |
 
 ## Saladused ja konfiguratsioon
 
@@ -110,7 +116,7 @@ Vajalikud muutujad:
 2. **Laadimine** — `ingest_hydro` ja `ingest_meteo` loevad JSON-failid, teevad UPSERT `bronze` skeemi (`bronze.hydro`, `bronze.meteo`)
 3. **Transformatsioon** — `run_dbt` käivitab `dbt build`: `silver` kiht puhastab ja teisendab laiaks, `gold` kiht ühendab hüdro- ja meteoandmed lähima jaama järgi
 4. **Testimine** — dbt kvaliteeditestid (väljatöötamisel)
-5. **Näidikulaud** — Tableau ühendub otse andmebaasiga ja kuvab veetaseme ning ilmaandmete analüüsi
+5. **Väljund** — Tableau ühendub otse andmebaasiga (`gold` kiht) ja kuvab veetaseme ning ilmaandmete analüüsi; FastAPI (`api.deng.ee`) publitseerib andmed avaliku REST API kaudu
 
 ## Andmekvaliteedi testid
 
@@ -131,29 +137,57 @@ Testide tulemused: `bronze.etl_log` tabelis — vaadatav Airflow UI kaudu või o
 ├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
+├── dags/
+│   ├── hydro_meteo_pipeline.py         ← põhiline igapäevane pipeline
+│   ├── seed_stations.py                ← jaamade seemneandmed ja läheduse arvutus
+│   ├── archive_raw_files.py            ← nädalane arhiveerimine
+│   └── datahub_refresh_dbt_metadata.py ← DataHub dbt metaandmete uuendamine
+├── dbt_project/
+│   ├── dbt_project.yml
+│   ├── profiles.yml
+│   ├── macros/
+│   │   └── generate_schema_name.sql
+│   ├── models/
+│   │   ├── api/                        ← FastAPI serveerimiskiht (5 mudelit)
+│   │   ├── gold/
+│   │   │   └── hydro_meteo.sql
+│   │   ├── silver/
+│   │   │   ├── hydro.sql
+│   │   │   └── meteo.sql
+│   │   └── sources/
+│   │       └── sources.yml
+│   └── snapshots/
+│       ├── snap_hydro_stations.sql
+│       └── snap_meteo_stations.sql
+├── docker/
+│   ├── airflow/
+│   │   └── Dockerfile
+│   ├── datahub-actions/
+│   │   └── Dockerfile
+│   ├── fastapi/
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   └── requirements.txt
+│   └── superset/
+│       ├── Dockerfile
+│       └── superset_config.py
+├── datahub/
+│   ├── artifacts/                      ← dbt artefaktid DataHubi jaoks
+│   └── recipes/                        ← DataHub ingestion retseptid
+│       ├── dbt_recipe.yml
+│       ├── postgres_recipe.yml
+│       └── superset_recipe.yml
 ├── docs/
 │   └── arhitektuur.md
-├── dags/
-│   ├── hydro_meteo_pipeline.py   ← põhiline igapäevane pipeline
-│   ├── seed_stations.py          ← jaamade seemneandmed ja läheduse arvutus
-│   └── archive_raw_files.py      ← nädalane arhiveerimine
-├── dbt_project/
-│   ├── models/
-│   │   ├── silver/               ← puhastatud kihid
-│   │   └── gold/                 ← analüüsivalmis ühendatud andmed
-│   ├── snapshots/                ← SCD2 jaamamuutuste jälgimiseks
-│   └── profiles.yml
 ├── ingestion/
-│   ├── haversine.py              ← kauguse arvutus
-│   └── ...
+│   └── haversine.py                    ← kauguse arvutus
 ├── seeds/
 │   ├── hydrometric_stations.csv
-│   └── meteorological_stations.csv
-├── datahub/
-│   ├── recipes/                  ← DataHub ingestion retseptid
-│   └── artifacts/                ← dbt artefaktid DataHubi jaoks
-└── docker/
-    └── datahub-actions/          ← kohandatud DataHub Actions image
+│   ├── meteorological_stations.csv
+│   └── station_proximity.csv
+└── sql/
+    ├── create_tables.sql
+    └── migrate_etl_log.sql
 ```
 
 ## Kokkuvõte, puudused ja võimalikud edasiarendused
@@ -165,14 +199,13 @@ Testide tulemused: `bronze.etl_log` tabelis — vaadatav Airflow UI kaudu või o
 - DataHub andmekataloog toimib: PostgreSQL, dbt ja Superset ingestion lõpetatud
 
 **Puudused:**
-- DataHub Airflow ingestion on pooleli — plugin vajab paigaldamist Airflow konteineri sisse
 - dbt kvaliteeditestid on välja töötamata
 
 **Mis edasi:**
-- DataHub Airflow ingestion lõpetamine (`acryl-datahub-airflow-plugin`)
-- dbt kihtide kvaliteeditestide kirjutamine
-- Pipeline'i tervise näidikulaud (`etl_log` + `airflow_db.task_instance` andmetest)
-- FastAPI liidese arendamine — oma REST API andmete publitseerimiseks
+- DataHub metaandmete rikastamine (DCAT-AP joondus)
+- FastAPI Swagger UI kakskeelne dokumentatsioon (EN/ET)
+- Avalik andmekataloog (loeb DataHub GraphQL API-st)
+- Tableau näidikulaud täiendamine
 
 ## Meeskond
 
