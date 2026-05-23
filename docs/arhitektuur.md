@@ -32,8 +32,9 @@ flowchart LR
     G --> H[(Silver / Gold)]
     H --> I[Tableau]
     H --> J[DataHub]
-    K[Apache Airflow] --> B
-    K --> G
+    H --> K[FastAPI]
+    L[Apache Airflow] --> B
+    L --> G
 ```
 
 > Igapäevane pipeline käivitatakse automaatselt kell 06:00 UTC. Andmete toomine, laadimine ja dbt transformatsioon toimuvad järjestikku. Kõik etapid logitakse `bronze.etl_log` tabelisse.
@@ -57,7 +58,7 @@ flowchart LR
 | `bronze.hydro` | API toorvastus — 1 rida jaama, tunni ja mõõtmetüübi kohta. Unikaalne: `(jaam_kood, timeline_ts_utc, aegrida_nimi)` |
 | `bronze.meteo` | API toorvastus — 1 rida jaama, tunni ja elemendi kohta. Unikaalne: `(jaam_kood, aasta, kuu, paev, tund, element_kood)` |
 | `bronze.etl_log` | Pipeline'i logi — iga tase logib alguse, lõpu, ridade arvu (`rows_processed`, `rows_loaded`) ja staatuse |
-| `silver.hydro` | Pivot laiaks — `wl_avg`, `wl_min`, `wl_max`, `wl_avg_corrected` (EH2000), `wt_avg`, `discharge_avg` jm |
+| `silver.hydro` | Pivot laiaks — `wl_avg`, `wl_min`, `wl_max`, `wl_avg_eh2000` (EH2000 absoluutkõrgus meetrites), `wt_avg`, `discharge_avg` jm |
 | `silver.meteo` | Pivot laiaks — `precipitation_mm`, `temp_avg`, `wind_speed_ms`, `sunshine_duration_min` jm |
 | `gold.hydro_meteo` | Hüdro + meteo ühendatult, `observation_ts_local` Eesti ajas, analüüsi jaoks |
 
