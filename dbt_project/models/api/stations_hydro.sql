@@ -11,4 +11,4 @@ select
     longitude,
     station_category,
     is_active
-from {{ ref('hydrometric_stations') }}
+from {{ source('ref', 'hydrometric_stations') }}
