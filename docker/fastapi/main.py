@@ -1,7 +1,7 @@
 """
-Estonian Hydro-Meteo API — Public API
+deng-hydro-climate — Public API
 FastAPI + asyncpg + slowapi rate limiter
-ReDoc + Try It Out at /docs
+Stoplight Elements at /docs
 """
 
 import json
@@ -38,22 +38,16 @@ DEFAULT_LIMIT = 5  # rows returned when no filters provided
 CONTENT = {
     "app_description": (
         "Public API for Estonian hydrological and meteorological observations.\n\n"
-        ":::info Fact/Dim Design\n"
-        "Station metadata is served from dedicated dimension endpoints — fetch once and cache. "
-        "Observation endpoints carry only `station_code` as a foreign key, minimising payload size.\n"
-        ":::\n\n"
-        ":::info Authentication\n"
-        "No authentication required. Rate limited to 60 requests/minute.\n"
-        ":::\n\n"
-        ":::warning Pipeline Lag\n"
-        "Source data is published with a ~3 day lag. The freshest available observations are "
-        "typically 3 days behind real time. Use explicit `from_ts`/`to_ts` for historical queries. "
-        "Default behaviour (no filters) returns 5 rows at the latest available timestamp.\n"
-        ":::\n\n"
+        "**Fact/dim design** — fetch station metadata once, query observations by "
+        "station and element code. No authentication required. "
+        "Rate limited to 60 requests/minute per IP.\n\n"
         "**Endpoints overview:**\n"
         "- `/v1/stations/*` — dimension endpoints, fetch once and cache\n"
         "- `/v1/elements` — measurement type catalogue\n"
-        "- `/v1/observations/*` — fact endpoints, filter by station, element, and time range"
+        "- `/v1/observations/*` — fact endpoints, filter by station, element, and time range\n\n"
+        "**Default behaviour:** when no filters are provided, returns the 5 most recent "
+        "rows at the latest available timestamp. Due to pipeline lag (~3 days), use "
+        "explicit `from_ts`/`to_ts` for historical queries."
     ),
     "tag_stations_desc":     "Dimension endpoints — hydrometric and meteorological station metadata. Fetch once and cache.",
     "tag_elements_desc":     "Measurement type catalogue — all available element codes with description and unit.",
@@ -107,13 +101,12 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="Estonian Hydro-Meteo API",
+    title="deng-hydro-climate API",
     description=CONTENT["app_description"],
     version="1.0.0",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
-    openapi_url=None,
 )
 
 app.state.limiter = limiter
@@ -127,24 +120,26 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# OpenAPI spec — patched with descriptions, error schemas removed
+# OpenAPI spec — patched with descriptions, schemas removed
 # ---------------------------------------------------------------------------
 
 def build_openapi_spec() -> dict:
     """Return a patched OpenAPI spec — descriptions injected, error schemas removed."""
-    app.openapi_schema = None
+
     base = app.openapi()
     spec = json.loads(json.dumps(base))
 
-    spec["info"]["title"]       = "Estonian Hydro-Meteo API"
+    # Patch app description
     spec["info"]["description"] = CONTENT["app_description"]
 
+    # Patch tags with descriptions
     spec["tags"] = [
         {"name": "Stations",     "description": CONTENT["tag_stations_desc"]},
         {"name": "Elements",     "description": CONTENT["tag_elements_desc"]},
         {"name": "Observations", "description": CONTENT["tag_observations_desc"]},
     ]
 
+    # Patch endpoint descriptions
     patches = {
         "/v1/stations/hydro":                {"get": {"description": CONTENT["stations_hydro_list"]}},
         "/v1/stations/hydro/{station_code}": {"get": {"description": CONTENT["stations_hydro_get"]}},
@@ -162,15 +157,13 @@ def build_openapi_spec() -> dict:
                 if method in spec["paths"][path]:
                     spec["paths"][path][method].update(patch)
 
-    # Remove error schemas
+    # Remove FastAPI error schemas — not useful for consumers
     schemas_to_remove = {"HTTPValidationError", "ValidationError"}
     if "components" in spec and "schemas" in spec["components"]:
         for s in schemas_to_remove:
             spec["components"]["schemas"].pop(s, None)
-    if "components" in spec and not spec["components"].get("schemas"):
-        spec.pop("components", None)
 
-    # Remove 422 responses
+    # Remove 422 responses from all operations — they reference removed schemas
     for path_item in spec.get("paths", {}).values():
         for op in path_item.values():
             if isinstance(op, dict) and "responses" in op:
@@ -184,7 +177,7 @@ async def openapi():
     return JSONResponse(build_openapi_spec())
 
 # ---------------------------------------------------------------------------
-# ReDoc + Try It Out — /docs
+# ReDoc CE — /docs
 # ---------------------------------------------------------------------------
 
 DOCS_HTML = """<!DOCTYPE html>
@@ -193,42 +186,92 @@ DOCS_HTML = """<!DOCTYPE html>
   <title>Estonian Hydro-Meteo API</title>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {{
+      margin: 0;
+      padding: 0;
+      background: #fafafa;
+    }}
+  </style>
 </head>
 <body>
-  <div id="redoc_container"></div>
-  <script src="https://cdn.jsdelivr.net/npm/redoc@2.5.2/bundles/redoc.standalone.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/redoc-try-it-out/dist/try-it-out.min.js"></script>
-  <script>
-    RedocTryItOut.init(
-      "/openapi.json",
-      {
-        title: "Estonian Hydro-Meteo API",
-        tryItOutEnabled: true,
-        redocOptions: {
-          hideDownloadButton: true,
-          hideHostname: false,
-          nativeScrollbars: true,
-          theme: {
-            colors: {
-              primary: { main: "#1a56db" },
-            },
-            typography: {
-              fontFamily: "'Raleway', sans-serif",
-              headings: {
-                fontFamily: "'Raleway', sans-serif",
-                fontWeight: "700",
-              },
-            },
-            sidebar: {
-              backgroundColor: "#f8f9fc",
-            },
-          },
-        },
-      },
-      document.getElementById("redoc_container")
-    )
-  </script>
+  <redoc
+    spec-url="/openapi.json"
+    hide-download-buttons="true"
+    native-scrollbars="true"
+    theme='{{
+      "spacing": {{
+        "unit": 5,
+        "sectionHorizontal": 32,
+        "sectionVertical": 32
+      }},
+      "colors": {{
+        "primary": {{
+          "main": "#2563eb"
+        }},
+        "tonalOffset": 0.2
+      }},
+      "typography": {{
+        "fontSize": "15px",
+        "lineHeight": "1.6em",
+        "fontWeightRegular": "400",
+        "fontWeightBold": "600",
+        "fontWeightLight": "300",
+        "fontFamily": "DM Sans, sans-serif",
+        "smoothing": "antialiased",
+        "optimizeSpeed": true,
+        "headings": {{
+          "fontFamily": "DM Sans, sans-serif",
+          "fontWeight": "700",
+          "lineHeight": "1.4em"
+        }},
+        "code": {{
+          "fontSize": "13px",
+          "fontFamily": "DM Mono, monospace",
+          "color": "#2563eb",
+          "backgroundColor": "#f0f2f5",
+          "wrap": true
+        }},
+        "links": {{
+          "color": "#2563eb",
+          "hover": "#1d4ed8",
+          "textDecoration": "none",
+          "hoverTextDecoration": "underline"
+        }}
+      }},
+      "sidebar": {{
+        "width": "220px",
+        "backgroundColor": "#fafafa",
+        "textColor": "#374151",
+        "activeTextColor": "#2563eb",
+        "groupItems": {{
+          "textTransform": "uppercase",
+          "activeTextColor": "#2563eb",
+          "activeBackgroundColor": "#fafafa"
+        }},
+        "level1Items": {{
+          "textTransform": "none",
+          "activeTextColor": "#2563eb",
+          "activeBackgroundColor": "#eff6ff"
+        }},
+        "arrow": {{
+          "size": "1.2em",
+          "color": "#9ca3af"
+        }}
+      }},
+      "rightPanel": {{
+        "backgroundColor": "#f8fafc",
+        "width": "32%",
+        "textColor": "#1e293b"
+      }},
+      "fab": {{
+        "backgroundColor": "#2563eb",
+        "color": "#ffffff"
+      }}
+    }}'
+  ></redoc>
+  <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
 </body>
 </html>"""
 
@@ -250,6 +293,7 @@ def default_from_ts() -> datetime:
 
 
 def row_to_dict(record: asyncpg.Record) -> dict:
+    """Convert asyncpg Record to JSON-serialisable dict."""
     result = {}
     for key, value in record.items():
         if isinstance(value, datetime):
@@ -262,7 +306,11 @@ def row_to_dict(record: asyncpg.Record) -> dict:
 # Dimension endpoints
 # ---------------------------------------------------------------------------
 
-@app.get("/v1/stations/hydro", summary="List all hydrometric stations", tags=["Stations"])
+@app.get(
+    "/v1/stations/hydro",
+    summary="List all hydrometric stations",
+    tags=["Stations"],
+)
 @limiter.limit(RATE_LIMIT)
 async def list_hydro_stations(request: Request):
     async with request.app.state.pool.acquire() as conn:
@@ -270,17 +318,28 @@ async def list_hydro_stations(request: Request):
     return [row_to_dict(r) for r in rows]
 
 
-@app.get("/v1/stations/hydro/{station_code}", summary="Get a single hydrometric station", tags=["Stations"])
+@app.get(
+    "/v1/stations/hydro/{station_code}",
+    summary="Get a single hydrometric station",
+    tags=["Stations"],
+)
 @limiter.limit(RATE_LIMIT)
 async def get_hydro_station(request: Request, station_code: int):
     async with request.app.state.pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM api.stations_hydro WHERE station_code = $1", station_code)
+        row = await conn.fetchrow(
+            "SELECT * FROM api.stations_hydro WHERE station_code = $1",
+            station_code,
+        )
     if row is None:
         return JSONResponse(status_code=404, content={"detail": f"Station {station_code} not found."})
     return row_to_dict(row)
 
 
-@app.get("/v1/stations/meteo", summary="List all meteorological stations", tags=["Stations"])
+@app.get(
+    "/v1/stations/meteo",
+    summary="List all meteorological stations",
+    tags=["Stations"],
+)
 @limiter.limit(RATE_LIMIT)
 async def list_meteo_stations(request: Request):
     async with request.app.state.pool.acquire() as conn:
@@ -288,17 +347,28 @@ async def list_meteo_stations(request: Request):
     return [row_to_dict(r) for r in rows]
 
 
-@app.get("/v1/stations/meteo/{station_code}", summary="Get a single meteorological station", tags=["Stations"])
+@app.get(
+    "/v1/stations/meteo/{station_code}",
+    summary="Get a single meteorological station",
+    tags=["Stations"],
+)
 @limiter.limit(RATE_LIMIT)
 async def get_meteo_station(request: Request, station_code: str):
     async with request.app.state.pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM api.stations_meteo WHERE station_code = $1", station_code)
+        row = await conn.fetchrow(
+            "SELECT * FROM api.stations_meteo WHERE station_code = $1",
+            station_code,
+        )
     if row is None:
         return JSONResponse(status_code=404, content={"detail": f"Station {station_code} not found."})
     return row_to_dict(row)
 
 
-@app.get("/v1/elements", summary="List all measurement element codes", tags=["Elements"])
+@app.get(
+    "/v1/elements",
+    summary="List all measurement element codes",
+    tags=["Elements"],
+)
 @limiter.limit(RATE_LIMIT)
 async def list_element_codes(
     request: Request,
@@ -307,16 +377,24 @@ async def list_element_codes(
     async with request.app.state.pool.acquire() as conn:
         if source:
             rows = await conn.fetch(
-                "SELECT * FROM api.measurement_types WHERE source = $1 ORDER BY element_code", source)
+                "SELECT * FROM api.measurement_types WHERE source = $1 ORDER BY element_code",
+                source,
+            )
         else:
-            rows = await conn.fetch("SELECT * FROM api.measurement_types ORDER BY source, element_code")
+            rows = await conn.fetch(
+                "SELECT * FROM api.measurement_types ORDER BY source, element_code"
+            )
     return [row_to_dict(r) for r in rows]
 
 # ---------------------------------------------------------------------------
 # Fact endpoints — hydro observations
 # ---------------------------------------------------------------------------
 
-@app.get("/v1/observations/hydro", summary="Query hydrological observations", tags=["Observations"])
+@app.get(
+    "/v1/observations/hydro",
+    summary="Query hydrological observations",
+    tags=["Observations"],
+)
 @limiter.limit(RATE_LIMIT)
 async def get_hydro_observations(
     request: Request,
@@ -329,30 +407,41 @@ async def get_hydro_observations(
     has_filters = any([station_code, element_code, from_ts, to_ts])
 
     async with request.app.state.pool.acquire() as conn:
+
         if not has_filters:
             latest_ts = await conn.fetchval("SELECT max(obs_ts) FROM api.observations_hydro")
             if latest_ts is None:
                 return []
             rows = await conn.fetch(
-                "SELECT station_code, element_code, obs_value, obs_ts, published_at "
-                "FROM api.observations_hydro WHERE obs_ts = $1 LIMIT $2",
+                """
+                SELECT station_code, element_code, obs_value, obs_ts, published_at
+                FROM api.observations_hydro
+                WHERE obs_ts = $1
+                LIMIT $2
+                """,
                 latest_ts, DEFAULT_LIMIT,
             )
             return [row_to_dict(r) for r in rows]
 
         from_dt = from_ts or default_from_ts()
         to_dt   = to_ts   or now_utc()
+
         station_codes = [s.strip() for s in station_code.split(",")] if station_code else None
         element_codes = [e.strip().lower() for e in element_code.split(",")] if element_code else None
 
-        query  = "SELECT station_code, element_code, obs_value, obs_ts, published_at FROM api.observations_hydro WHERE obs_ts >= $1 AND obs_ts <= $2"
+        query = """
+            SELECT station_code, element_code, obs_value, obs_ts, published_at
+            FROM api.observations_hydro
+            WHERE obs_ts >= $1 AND obs_ts <= $2
+        """
         params = [from_dt, to_dt]
-        idx    = 3
+        idx = 3
 
         if station_codes:
             query += f" AND station_code = ANY(${idx}::int[])"
             params.append([int(s) for s in station_codes])
             idx += 1
+
         if element_codes:
             query += f" AND element_code = ANY(${idx}::text[])"
             params.append(element_codes)
@@ -360,33 +449,51 @@ async def get_hydro_observations(
 
         query += f" ORDER BY obs_ts DESC, station_code LIMIT ${idx}"
         params.append(limit)
+
         rows = await conn.fetch(query, *params)
 
     return [row_to_dict(r) for r in rows]
 
 
-@app.get("/v1/observations/hydro/latest", summary="Latest hydrological observation per station", tags=["Observations"])
+@app.get(
+    "/v1/observations/hydro/latest",
+    summary="Latest hydrological observation per station",
+    tags=["Observations"],
+)
 @limiter.limit(RATE_LIMIT)
 async def get_hydro_latest(
     request: Request,
     element_code: Optional[str] = Query(None, description="Comma-separated element codes, e.g. wl_avg,wt_avg"),
 ):
     element_codes = [e.strip().lower() for e in element_code.split(",")] if element_code else None
-    query  = "SELECT DISTINCT ON (station_code, element_code) station_code, element_code, obs_value, obs_ts, published_at FROM api.observations_hydro"
+
+    query = """
+        SELECT DISTINCT ON (station_code, element_code)
+            station_code, element_code, obs_value, obs_ts, published_at
+        FROM api.observations_hydro
+    """
     params = []
+
     if element_codes:
         query += " WHERE element_code = ANY($1::text[])"
         params.append(element_codes)
+
     query += " ORDER BY station_code, element_code, obs_ts DESC"
+
     async with request.app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
+
     return [row_to_dict(r) for r in rows]
 
 # ---------------------------------------------------------------------------
 # Fact endpoints — meteo observations
 # ---------------------------------------------------------------------------
 
-@app.get("/v1/observations/meteo", summary="Query meteorological observations", tags=["Observations"])
+@app.get(
+    "/v1/observations/meteo",
+    summary="Query meteorological observations",
+    tags=["Observations"],
+)
 @limiter.limit(RATE_LIMIT)
 async def get_meteo_observations(
     request: Request,
@@ -399,30 +506,41 @@ async def get_meteo_observations(
     has_filters = any([station_code, element_code, from_ts, to_ts])
 
     async with request.app.state.pool.acquire() as conn:
+
         if not has_filters:
             latest_ts = await conn.fetchval("SELECT max(obs_ts) FROM api.observations_meteo")
             if latest_ts is None:
                 return []
             rows = await conn.fetch(
-                "SELECT station_code, element_code, obs_value, obs_ts, published_at "
-                "FROM api.observations_meteo WHERE obs_ts = $1 LIMIT $2",
+                """
+                SELECT station_code, element_code, obs_value, obs_ts, published_at
+                FROM api.observations_meteo
+                WHERE obs_ts = $1
+                LIMIT $2
+                """,
                 latest_ts, DEFAULT_LIMIT,
             )
             return [row_to_dict(r) for r in rows]
 
         from_dt = from_ts or default_from_ts()
         to_dt   = to_ts   or now_utc()
+
         station_codes = [s.strip() for s in station_code.split(",")] if station_code else None
         element_codes = [e.strip().lower() for e in element_code.split(",")] if element_code else None
 
-        query  = "SELECT station_code, element_code, obs_value, obs_ts, published_at FROM api.observations_meteo WHERE obs_ts >= $1 AND obs_ts <= $2"
+        query = """
+            SELECT station_code, element_code, obs_value, obs_ts, published_at
+            FROM api.observations_meteo
+            WHERE obs_ts >= $1 AND obs_ts <= $2
+        """
         params = [from_dt, to_dt]
-        idx    = 3
+        idx = 3
 
         if station_codes:
             query += f" AND station_code = ANY(${idx}::text[])"
             params.append(station_codes)
             idx += 1
+
         if element_codes:
             query += f" AND element_code = ANY(${idx}::text[])"
             params.append(element_codes)
@@ -430,6 +548,7 @@ async def get_meteo_observations(
 
         query += f" ORDER BY obs_ts DESC, station_code LIMIT ${idx}"
         params.append(limit)
+
         rows = await conn.fetch(query, *params)
 
     return [row_to_dict(r) for r in rows]
