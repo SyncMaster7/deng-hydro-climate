@@ -5,4 +5,4 @@ select
     longitude,
     altitude_m,
     is_active
-from {{ ref('meteorological_stations') }}
+from {{ source('ref', 'meteorological_stations') }}
