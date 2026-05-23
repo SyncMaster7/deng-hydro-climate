@@ -37,3 +37,10 @@ models:
     gold:
       +materialized: table
       +schema: gold
+    api:
+      +schema: api
+      +materialized: table
+      observations_hydro:
+        +materialized: incremental
+      observations_meteo:
+        +materialized: incremental
