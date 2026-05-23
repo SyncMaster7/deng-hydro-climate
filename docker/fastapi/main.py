@@ -189,57 +189,123 @@ REDOC_HTML = """<!DOCTYPE html>
   <title>deng-hydro-climate API</title>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {{ margin: 0; font-family: 'Inter', sans-serif; }}
-    #lang-bar {{
-      position: fixed;
-      top: 0; right: 0;
-      z-index: 9999;
-      padding: 10px 20px;
+    * {{ box-sizing: border-box; }}
+
+    body {{
+      margin: 0;
+      font-family: 'Raleway', Arial, sans-serif;
       background: #fff;
-      border-bottom: 1px solid #e5e7eb;
-      border-left: 1px solid #e5e7eb;
-      border-radius: 0 0 0 8px;
+    }}
+
+    /* ── Sidebar collapse toggle ── */
+    #sidebar-toggle {{
+      position: fixed;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      z-index: 10000;
+      width: 18px;
+      height: 48px;
+      background: #e5e7eb;
+      border: none;
+      border-radius: 0 6px 6px 0;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 500;
+      justify-content: center;
+      font-size: 10px;
       color: #6b7280;
-      box-shadow: -2px 2px 8px rgba(0,0,0,0.06);
+      transition: background 0.15s;
+      padding: 0;
     }}
-    #lang-bar span {{ color: #9ca3af; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }}
+    #sidebar-toggle:hover {{ background: #d1d5db; color: #374151; }}
+
+    /* When sidebar is hidden, push ReDoc content to fill screen */
+    body.sidebar-hidden #sidebar-toggle {{ left: 0; }}
+    body.sidebar-hidden [class*="menu-content"],
+    body.sidebar-hidden [class*="SideMenu"],
+    body.sidebar-hidden aside {{
+      display: none !important;
+    }}
+    body.sidebar-hidden [class*="api-content"] {{
+      margin-left: 0 !important;
+      padding-left: 2rem !important;
+    }}
+
+    /* ── Language toggle — bottom left, discrete ── */
+    #lang-bar {{
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Raleway', Arial, sans-serif;
+    }}
+    #lang-bar span {{
+      color: #9ca3af;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }}
     .lang-btn {{
-      padding: 4px 12px;
-      border-radius: 5px;
+      padding: 3px 9px;
+      border-radius: 4px;
       border: 1px solid #e5e7eb;
       background: #f9fafb;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
-      color: #374151;
+      font-family: 'Raleway', Arial, sans-serif;
+      color: #6b7280;
       transition: all 0.15s;
+      letter-spacing: 0.05em;
     }}
     .lang-btn.active {{
       background: #1a56db;
       color: #fff;
       border-color: #1a56db;
     }}
-    .lang-btn:hover:not(.active) {{ background: #f3f4f6; }}
+    .lang-btn:hover:not(.active) {{ background: #f3f4f6; color: #374151; }}
+
+    /* ── Hide Redocly footer ── */
+    [class*="powered-by"],
+    a[href*="redocly"],
+    a[href*="redoc.ly"] {{
+      display: none !important;
+    }}
   </style>
 </head>
 <body>
+
+  <!-- Sidebar collapse toggle -->
+  <button id="sidebar-toggle" title="Toggle sidebar" onclick="toggleSidebar()">&#8942;</button>
+
+  <!-- Language toggle — bottom left -->
   <div id="lang-bar">
-    <span>Docs language</span>
-    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    <span>Keel / Lang</span>
     <button class="lang-btn" id="btn-et" onclick="setLang('et')">ET</button>
+    <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
   </div>
+
   <div id="redoc-container"></div>
+
   <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
   <script>
     const DESCRIPTIONS = {descriptions_json};
 
+    // ── Sidebar toggle ──
+    function toggleSidebar() {{
+      document.body.classList.toggle('sidebar-hidden');
+      const btn = document.getElementById('sidebar-toggle');
+      btn.innerHTML = document.body.classList.contains('sidebar-hidden') ? '&#9654;' : '&#8942;';
+    }}
+
+    // ── Language toggle ──
     function setLang(lang) {{
       localStorage.setItem('api_lang', lang);
       document.getElementById('btn-en').classList.toggle('active', lang === 'en');
@@ -247,24 +313,68 @@ REDOC_HTML = """<!DOCTYPE html>
       renderDocs(lang);
     }}
 
+    // ── Fetch live sample data for right panel ──
+    async function fetchSamples() {{
+      const [hydroResp, meteoResp, stationsHydroResp, stationsMeteoResp, elementsResp] = await Promise.all([
+        fetch('/v1/observations/hydro?limit=1'),
+        fetch('/v1/observations/meteo?limit=1'),
+        fetch('/v1/stations/hydro'),
+        fetch('/v1/stations/meteo'),
+        fetch('/v1/elements'),
+      ]);
+      return {{
+        obs_hydro:      await hydroResp.json(),
+        obs_meteo:      await meteoResp.json(),
+        stations_hydro: await stationsHydroResp.json(),
+        stations_meteo: await stationsMeteoResp.json(),
+        elements:       await elementsResp.json(),
+      }};
+    }}
+
+    // ── Inject live samples into OpenAPI spec as examples ──
+    function injectSamples(spec, samples) {{
+      const inject = (path, sample) => {{
+        if (spec.paths[path]?.get) {{
+          spec.paths[path].get.responses = spec.paths[path].get.responses || {{}};
+          spec.paths[path].get.responses['200'] = {{
+            description: 'Success',
+            content: {{
+              'application/json': {{
+                example: sample,
+              }}
+            }}
+          }};
+        }}
+      }};
+      inject('/v1/observations/hydro',        samples.obs_hydro);
+      inject('/v1/observations/hydro/latest', samples.obs_hydro);
+      inject('/v1/observations/meteo',        samples.obs_meteo);
+      inject('/v1/stations/hydro',            samples.stations_hydro.slice(0, 2));
+      inject('/v1/stations/meteo',            samples.stations_meteo.slice(0, 2));
+      inject('/v1/elements',                  samples.elements);
+    }}
+
     async function renderDocs(lang) {{
-      const resp = await fetch('/openapi.json');
+      const [resp, samples] = await Promise.all([
+        fetch('/openapi.json'),
+        fetchSamples(),
+      ]);
       const spec = await resp.json();
       const d = DESCRIPTIONS[lang];
 
-      // App description
+      // Patch app description
       spec.info.description = d.app;
 
       // Patch endpoint descriptions
       const patches = {{
-        '/v1/stations/hydro':              {{ get: {{ description: d.stations_hydro_list }} }},
-        '/v1/stations/hydro/{{station_code}}': {{ get: {{ description: d.stations_hydro_get }} }},
-        '/v1/stations/meteo':              {{ get: {{ description: d.stations_meteo_list }} }},
-        '/v1/stations/meteo/{{station_code}}': {{ get: {{ description: d.stations_meteo_get }} }},
-        '/v1/elements':                    {{ get: {{ description: d.elements }} }},
-        '/v1/observations/hydro':          {{ get: {{ description: d.obs_hydro }} }},
-        '/v1/observations/hydro/latest':   {{ get: {{ description: d.obs_hydro_latest }} }},
-        '/v1/observations/meteo':          {{ get: {{ description: d.obs_meteo }} }},
+        '/v1/stations/hydro':                {{ get: {{ description: d.stations_hydro_list }} }},
+        '/v1/stations/hydro/{{station_code}}':   {{ get: {{ description: d.stations_hydro_get }} }},
+        '/v1/stations/meteo':                {{ get: {{ description: d.stations_meteo_list }} }},
+        '/v1/stations/meteo/{{station_code}}':   {{ get: {{ description: d.stations_meteo_get }} }},
+        '/v1/elements':                      {{ get: {{ description: d.elements }} }},
+        '/v1/observations/hydro':            {{ get: {{ description: d.obs_hydro }} }},
+        '/v1/observations/hydro/latest':     {{ get: {{ description: d.obs_hydro_latest }} }},
+        '/v1/observations/meteo':            {{ get: {{ description: d.obs_meteo }} }},
       }};
 
       for (const [path, methods] of Object.entries(patches)) {{
@@ -277,18 +387,37 @@ REDOC_HTML = """<!DOCTYPE html>
         }}
       }}
 
+      // Inject live sample data
+      injectSamples(spec, samples);
+
       document.getElementById('redoc-container').innerHTML = '';
       Redoc.init(spec, {{
-        scrollYOffset: 50,
-        hideDownloadButton: false,
+        scrollYOffset: 0,
+        hideDownloadButton: true,
+        nativeScrollbars: true,
         theme: {{
-          colors: {{ primary: {{ main: '#1a56db' }} }},
-          typography: {{ fontFamily: 'Inter, sans-serif' }},
-        }}
+          colors: {{
+            primary: {{ main: '#1a56db' }},
+          }},
+          typography: {{
+            fontFamily: "'Raleway', Arial, sans-serif",
+            headings: {{
+              fontFamily: "'Raleway', Arial, sans-serif",
+              fontWeight: '700',
+            }},
+          }},
+          sidebar: {{
+            backgroundColor: '#f8f9fc',
+            textColor: '#374151',
+          }},
+          rightPanel: {{
+            backgroundColor: '#1e2433',
+          }},
+        }},
       }}, document.getElementById('redoc-container'));
     }}
 
-    const lang = localStorage.getItem('api_lang') || 'en';
+    const lang = localStorage.getItem('api_lang') || 'et';
     setLang(lang);
   </script>
 </body>
@@ -301,52 +430,54 @@ SWAGGER_HTML = """<!DOCTYPE html>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {{ margin: 0; font-family: 'Inter', sans-serif; }}
+    body {{ margin: 0; font-family: 'Raleway', Arial, sans-serif; }}
     #lang-bar {{
       position: fixed;
-      top: 0; right: 0;
+      bottom: 20px;
+      left: 20px;
       z-index: 9999;
-      padding: 10px 20px;
-      background: #fff;
-      border-bottom: 1px solid #e5e7eb;
-      border-left: 1px solid #e5e7eb;
-      border-radius: 0 0 0 8px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 500;
-      color: #6b7280;
-      box-shadow: -2px 2px 8px rgba(0,0,0,0.06);
+      gap: 6px;
+      font-family: 'Raleway', Arial, sans-serif;
     }}
-    #lang-bar span {{ color: #9ca3af; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }}
+    #lang-bar span {{
+      color: #9ca3af;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }}
     .lang-btn {{
-      padding: 4px 12px;
-      border-radius: 5px;
+      padding: 3px 9px;
+      border-radius: 4px;
       border: 1px solid #e5e7eb;
       background: #f9fafb;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
-      color: #374151;
+      font-family: 'Raleway', Arial, sans-serif;
+      color: #6b7280;
       transition: all 0.15s;
+      letter-spacing: 0.05em;
     }}
     .lang-btn.active {{
       background: #1a56db;
       color: #fff;
       border-color: #1a56db;
     }}
-    .lang-btn:hover:not(.active) {{ background: #f3f4f6; }}
+    .lang-btn:hover:not(.active) {{ background: #f3f4f6; color: #374151; }}
     .swagger-ui .topbar {{ display: none; }}
+    .swagger-ui, .swagger-ui * {{ font-family: 'Raleway', Arial, sans-serif !important; }}
   </style>
 </head>
 <body>
   <div id="lang-bar">
-    <span>Docs language</span>
-    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    <span>Keel / Lang</span>
     <button class="lang-btn" id="btn-et" onclick="setLang('et')">ET</button>
+    <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
   </div>
   <div id="swagger-ui"></div>
   <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
@@ -368,14 +499,14 @@ SWAGGER_HTML = """<!DOCTYPE html>
       spec.info.description = d.app;
 
       const patches = {{
-        '/v1/stations/hydro':              {{ get: {{ description: d.stations_hydro_list }} }},
-        '/v1/stations/hydro/{{station_code}}': {{ get: {{ description: d.stations_hydro_get }} }},
-        '/v1/stations/meteo':              {{ get: {{ description: d.stations_meteo_list }} }},
-        '/v1/stations/meteo/{{station_code}}': {{ get: {{ description: d.stations_meteo_get }} }},
-        '/v1/elements':                    {{ get: {{ description: d.elements }} }},
-        '/v1/observations/hydro':          {{ get: {{ description: d.obs_hydro }} }},
-        '/v1/observations/hydro/latest':   {{ get: {{ description: d.obs_hydro_latest }} }},
-        '/v1/observations/meteo':          {{ get: {{ description: d.obs_meteo }} }},
+        '/v1/stations/hydro':                {{ get: {{ description: d.stations_hydro_list }} }},
+        '/v1/stations/hydro/{{station_code}}':   {{ get: {{ description: d.stations_hydro_get }} }},
+        '/v1/stations/meteo':                {{ get: {{ description: d.stations_meteo_list }} }},
+        '/v1/stations/meteo/{{station_code}}':   {{ get: {{ description: d.stations_meteo_get }} }},
+        '/v1/elements':                      {{ get: {{ description: d.elements }} }},
+        '/v1/observations/hydro':            {{ get: {{ description: d.obs_hydro }} }},
+        '/v1/observations/hydro/latest':     {{ get: {{ description: d.obs_hydro_latest }} }},
+        '/v1/observations/meteo':            {{ get: {{ description: d.obs_meteo }} }},
       }};
 
       for (const [path, methods] of Object.entries(patches)) {{
@@ -397,7 +528,7 @@ SWAGGER_HTML = """<!DOCTYPE html>
       }});
     }}
 
-    const lang = localStorage.getItem('api_lang') || 'en';
+    const lang = localStorage.getItem('api_lang') || 'et';
     setLang(lang);
   </script>
 </body>
