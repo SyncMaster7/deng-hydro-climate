@@ -1,5 +1,5 @@
 """
-deng-hydro-climate — Public API
+Estonian Hydro-Meteo API — Public API
 FastAPI + asyncpg + slowapi rate limiter
 Stoplight Elements at /docs
 """
@@ -38,16 +38,22 @@ DEFAULT_LIMIT = 5  # rows returned when no filters provided
 CONTENT = {
     "app_description": (
         "Public API for Estonian hydrological and meteorological observations.\n\n"
-        "**Fact/dim design** — fetch station metadata once, query observations by "
-        "station and element code. No authentication required. "
-        "Rate limited to 60 requests/minute per IP.\n\n"
+        ":::info Fact/Dim Design\n"
+        "Station metadata is served from dedicated dimension endpoints — fetch once and cache. "
+        "Observation endpoints carry only `station_code` as a foreign key, minimising payload size.\n"
+        ":::\n\n"
+        ":::info Authentication\n"
+        "No authentication required. Rate limited to 60 requests/minute.\n"
+        ":::\n\n"
+        ":::warning Pipeline Lag\n"
+        "Source data is published with a ~3 day lag. The freshest available observations are "
+        "typically 3 days behind real time. Use explicit `from_ts`/`to_ts` for historical queries. "
+        "Default behaviour (no filters) returns 5 rows at the latest available timestamp.\n"
+        ":::\n\n"
         "**Endpoints overview:**\n"
         "- `/v1/stations/*` — dimension endpoints, fetch once and cache\n"
         "- `/v1/elements` — measurement type catalogue\n"
-        "- `/v1/observations/*` — fact endpoints, filter by station, element, and time range\n\n"
-        "**Default behaviour:** when no filters are provided, returns the 5 most recent "
-        "rows at the latest available timestamp. Due to pipeline lag (~3 days), use "
-        "explicit `from_ts`/`to_ts` for historical queries."
+        "- `/v1/observations/*` — fact endpoints, filter by station, element, and time range"
     ),
     "tag_stations_desc":     "Dimension endpoints — hydrometric and meteorological station metadata. Fetch once and cache.",
     "tag_elements_desc":     "Measurement type catalogue — all available element codes with description and unit.",
@@ -101,7 +107,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="deng-hydro-climate API",
+    title="Estonian Hydro-Meteo API",
     description=CONTENT["app_description"],
     version="1.0.0",
     lifespan=lifespan,
@@ -129,7 +135,8 @@ def build_openapi_spec() -> dict:
     base = app.openapi()
     spec = json.loads(json.dumps(base))
 
-    # Patch app description
+    # Patch app title and description
+    spec["info"]["title"]       = "Estonian Hydro-Meteo API"
     spec["info"]["description"] = CONTENT["app_description"]
 
     # Patch tags with descriptions
@@ -162,6 +169,9 @@ def build_openapi_spec() -> dict:
     if "components" in spec and "schemas" in spec["components"]:
         for s in schemas_to_remove:
             spec["components"]["schemas"].pop(s, None)
+    # Remove components entirely if now empty
+    if "components" in spec and not spec["components"].get("schemas"):
+        spec.pop("components", None)
 
     # Remove 422 responses from all operations — they reference removed schemas
     for path_item in spec.get("paths", {}).values():
@@ -185,22 +195,30 @@ ELEMENTS_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>deng-hydro-climate API</title>
+  <title>Estonian Hydro-Meteo API</title>
   <script src="https://unpkg.com/@stoplight/elements/web-components.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements/styles.min.css">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    html, body {{ height: 100%; overflow: hidden; }}
 
+    html, body {{
+      height: 100%;
+      overflow: hidden;
+    }}
+
+    /* Full height sidebar fix */
     elements-api {{
-      display: block;
+      display: flex;
       height: 100vh;
+      width: 100vw;
     }}
 
     /* Hide "powered by Stoplight" — Apache 2.0 licence permits this */
-    a[href*="stoplight"],
+    a[href*="stoplight.io"],
     [class*="PoweredBy"],
-    [class*="powered-by"] {{
+    [class*="powered-by"],
+    [data-testid*="powered"],
+    div:has(> a[href*="stoplight"]) {{
       display: none !important;
     }}
   </style>
@@ -210,6 +228,7 @@ ELEMENTS_HTML = """<!DOCTYPE html>
     apiDescriptionUrl="/openapi.json"
     router="hash"
     layout="sidebar"
+    tryItCredentialsPolicy="same-origin"
   />
 </body>
 </html>"""
