@@ -1,9 +1,10 @@
 """
 deng-hydro-climate — Public API
 FastAPI + asyncpg + slowapi rate limiter
-ReDoc at /docs (bilingual EN/ET), Swagger UI at /docs-dev
+Stoplight Elements at /docs (bilingual EN/ET)
 """
 
+import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -27,108 +28,99 @@ DB_NAME     = os.getenv("ANALYTICS_DB_NAME", "hydro_climate_db")
 DB_USER     = os.getenv("ANALYTICS_DB_USER", "analytics")
 DB_PASSWORD = os.getenv("ANALYTICS_DB_PASSWORD", "")
 
-RATE_LIMIT  = os.getenv("RATE_LIMIT", "60/minute")
-
+RATE_LIMIT    = os.getenv("RATE_LIMIT", "60/minute")
 DEFAULT_LIMIT = 5  # rows returned when no filters provided
 
 # ---------------------------------------------------------------------------
-# Bilingual descriptions
+# Bilingual content
 # ---------------------------------------------------------------------------
 
-DESCRIPTIONS = {
+CONTENT = {
     "en": {
-        "app": (
-            "Public API for Estonian hydrological and meteorological observations. "
-            "**Fact/dim design** — fetch station metadata once, query observations by station and element code. "
-            "No authentication required. Rate limited to 60 requests/minute per IP.\n\n"
+        # App
+        "app_title":       "deng-hydro-climate API",
+        "app_description": (
+            "Public API for Estonian hydrological and meteorological observations.\n\n"
+            "**Fact/dim design** — fetch station metadata once, query observations by "
+            "station and element code. No authentication required. "
+            "Rate limited to 60 requests/minute per IP.\n\n"
             "**Endpoints overview:**\n"
             "- `/v1/stations/*` — dimension endpoints, fetch once and cache\n"
             "- `/v1/elements` — measurement type catalogue\n"
             "- `/v1/observations/*` — fact endpoints, filter by station, element, and time range\n\n"
-            "**Default behaviour:** when no filters are provided, returns the 5 most recent rows at the latest available timestamp. "
-            "Due to pipeline lag (~3 days), use explicit `from_ts`/`to_ts` for historical queries."
+            "**Default behaviour:** when no filters are provided, returns the 5 most recent "
+            "rows at the latest available timestamp. Due to pipeline lag (~3 days), use "
+            "explicit `from_ts`/`to_ts` for historical queries."
         ),
+        # Tags
+        "tag_stations":     "Stations",
+        "tag_stations_desc": "Dimension endpoints — hydrometric and meteorological station metadata. Fetch once and cache.",
+        "tag_elements":     "Elements",
+        "tag_elements_desc": "Measurement type catalogue — all available element codes with description and unit.",
+        "tag_observations": "Observations",
+        "tag_observations_desc": "Fact endpoints — time-series observations filtered by station, element code, and time range.",
+        # Endpoints
         "stations_hydro_list": "Returns all 76 hydrometric stations with full metadata. Fetch once and cache — station data changes rarely.",
-        "stations_hydro_get": "Returns metadata for a single hydrometric station by station_code.",
+        "stations_hydro_get":  "Returns metadata for a single hydrometric station by station_code.",
         "stations_meteo_list": "Returns all 25 meteorological stations with full metadata. Fetch once and cache — station data changes rarely.",
-        "stations_meteo_get": "Returns metadata for a single meteorological station by station_code.",
-        "elements": (
-            "Returns all available element codes with description, unit, and source. "
-            "Use `source=hydro` or `source=meteo` to filter. "
-            "Element codes are used as filters in observation endpoints."
-        ),
-        "obs_hydro": (
+        "stations_meteo_get":  "Returns metadata for a single meteorological station by station_code.",
+        "elements":            "Returns all available element codes with description, unit, and source. Use `source=hydro` or `source=meteo` to filter.",
+        "obs_hydro":           (
             "Returns hydrological observations filtered by station, element code, and time range. "
             "All timestamps are in local Estonian time (EET/EEST).\n\n"
             "**Default (no filters):** returns 5 rows at the latest available timestamp.\n"
             "**With filters:** returns up to `limit` rows ordered by `obs_ts` descending."
         ),
-        "obs_hydro_latest": (
-            "Returns the most recent observation per station per element code. "
-            "Useful for dashboard current-state views. No time range filter needed."
-        ),
-        "obs_meteo": (
+        "obs_hydro_latest":    "Returns the most recent observation per station per element code. Useful for dashboard current-state views.",
+        "obs_meteo":           (
             "Returns meteorological observations filtered by station, element code, and time range. "
             "All timestamps are in local Estonian time (EET/EEST).\n\n"
             "**Default (no filters):** returns 5 rows at the latest available timestamp.\n"
             "**With filters:** returns up to `limit` rows ordered by `obs_ts` descending."
         ),
-        "param_station_code_hydro": "Comma-separated hydrometric station codes, e.g. `41061,26227`",
-        "param_station_code_meteo": "Comma-separated meteorological station codes, e.g. `26242,26231`",
-        "param_element_code_hydro": "Comma-separated element codes, e.g. `wl_avg,wl_min`",
-        "param_element_code_meteo": "Comma-separated element codes, e.g. `pr1h,ta`",
-        "param_element_code_filter": "Comma-separated element codes, e.g. `wl_avg,wt_avg`",
-        "param_from_ts": "Start of time range (ISO 8601). When omitted and other filters present, defaults to 4 days ago.",
-        "param_to_ts": "End of time range (ISO 8601). Defaults to now.",
-        "param_limit": "Maximum number of rows returned (1–50000).",
-        "param_source": "Filter by source: `hydro` or `meteo`",
     },
     "et": {
-        "app": (
-            "Avalik API Eesti hüdroloogiliste ja meteoroloogiliste vaatluste jaoks. "
-            "**Fakt/mõõde disain** — laadi jaama metaandmed üks kord, päri vaatlusi jaama ja elemendi koodi järgi. "
-            "Autentimine pole vajalik. Päringuid on piiratud 60-ni minutis IP-aadressi kohta.\n\n"
+        # App
+        "app_title":       "deng-hydro-climate API",
+        "app_description": (
+            "Avalik API Eesti hüdroloogiliste ja meteoroloogiliste vaatluste jaoks.\n\n"
+            "**Fakt/mõõde disain** — laadi jaama metaandmed üks kord, päri vaatlusi "
+            "jaama ja elemendi koodi järgi. Autentimine pole vajalik. "
+            "Päringuid on piiratud 60-ni minutis IP-aadressi kohta.\n\n"
             "**Otspunktide ülevaade:**\n"
             "- `/v1/stations/*` — mõõtme-otspunktid, laadi üks kord ja vahemälusta\n"
             "- `/v1/elements` — mõõtmistüüpide kataloog\n"
             "- `/v1/observations/*` — fakti-otspunktid, filtreeri jaama, elemendi ja ajavahemiku järgi\n\n"
-            "**Vaikekäitumine:** kui filtreid pole määratud, tagastatakse 5 viimast rida viimasel saadaoleval ajatemplil. "
-            "Torujuhtme viivituse tõttu (~3 päeva) kasuta ajalooliste päringute jaoks `from_ts`/`to_ts` parameetreid."
+            "**Vaikekäitumine:** kui filtreid pole määratud, tagastatakse 5 viimast rida "
+            "viimasel saadaoleval ajatemplil. Torujuhtme viivituse tõttu (~3 päeva) kasuta "
+            "ajalooliste päringute jaoks `from_ts`/`to_ts` parameetreid."
         ),
+        # Tags
+        "tag_stations":      "Jaamad",
+        "tag_stations_desc": "Mõõtme-otspunktid — hüdromeetria- ja meteoroloogiajaamade metaandmed. Laadi üks kord ja vahemälusta.",
+        "tag_elements":      "Elemendid",
+        "tag_elements_desc": "Mõõtmistüüpide kataloog — kõik saadaolevad elemendikoodid koos kirjelduse ja ühikuga.",
+        "tag_observations":  "Vaatlused",
+        "tag_observations_desc": "Fakti-otspunktid — aegridade vaatlused filtreeritud jaama, elemendi koodi ja ajavahemiku järgi.",
+        # Endpoints
         "stations_hydro_list": "Tagastab kõik 76 hüdromeetrijaama täieliku metaandmetega. Laadi üks kord ja vahemälusta — jaama andmed muutuvad harva.",
-        "stations_hydro_get": "Tagastab ühe hüdromeetrijaama metaandmed jaama koodi (station_code) järgi.",
+        "stations_hydro_get":  "Tagastab ühe hüdromeetrijaama metaandmed jaama koodi (station_code) järgi.",
         "stations_meteo_list": "Tagastab kõik 25 meteoroloogiajaama täieliku metaandmetega. Laadi üks kord ja vahemälusta — jaama andmed muutuvad harva.",
-        "stations_meteo_get": "Tagastab ühe meteoroloogiajaama metaandmed jaama koodi (station_code) järgi.",
-        "elements": (
-            "Tagastab kõik saadaolevad elemendikoodid koos kirjelduse, ühiku ja allikaga. "
-            "Kasuta `source=hydro` või `source=meteo` filtreerimiseks. "
-            "Elemendikoodid on kasutatavad filtritena vaatluste otspunktides."
-        ),
-        "obs_hydro": (
+        "stations_meteo_get":  "Tagastab ühe meteoroloogiajaama metaandmed jaama koodi (station_code) järgi.",
+        "elements":            "Tagastab kõik saadaolevad elemendikoodid koos kirjelduse, ühiku ja allikaga. Kasuta `source=hydro` või `source=meteo` filtreerimiseks.",
+        "obs_hydro":           (
             "Tagastab hüdroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
             "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
             "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
             "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
         ),
-        "obs_hydro_latest": (
-            "Tagastab iga jaama ja elemendi koodi viimase vaatluse. "
-            "Kasulik armatuurlaua hetkeseisu kuvamiseks. Ajavahemiku filtrit pole vaja."
-        ),
-        "obs_meteo": (
+        "obs_hydro_latest":    "Tagastab iga jaama ja elemendi koodi viimase vaatluse. Kasulik armatuurlaua hetkeseisu kuvamiseks.",
+        "obs_meteo":           (
             "Tagastab meteoroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
             "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
             "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
             "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
         ),
-        "param_station_code_hydro": "Komaga eraldatud hüdromeetrijaama koodid, nt `41061,26227`",
-        "param_station_code_meteo": "Komaga eraldatud meteoroloogiajaama koodid, nt `26242,26231`",
-        "param_element_code_hydro": "Komaga eraldatud elemendikoodid, nt `wl_avg,wl_min`",
-        "param_element_code_meteo": "Komaga eraldatud elemendikoodid, nt `pr1h,ta`",
-        "param_element_code_filter": "Komaga eraldatud elemendikoodid, nt `wl_avg,wt_avg`",
-        "param_from_ts": "Ajavahemiku algus (ISO 8601). Kui puudub ja muud filtrid on määratud, vaikimisi 4 päeva tagasi.",
-        "param_to_ts": "Ajavahemiku lõpp (ISO 8601). Vaikimisi praegune aeg.",
-        "param_limit": "Tagastatavate ridade maksimaalne arv (1–50000).",
-        "param_source": "Filtreeri allika järgi: `hydro` või `meteo`",
     },
 }
 
@@ -157,12 +149,12 @@ async def lifespan(app: FastAPI):
     await app.state.pool.close()
 
 # ---------------------------------------------------------------------------
-# App — docs disabled, served via custom routes below
+# App — docs disabled, served via custom route below
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
     title="deng-hydro-climate API",
-    description=DESCRIPTIONS["en"]["app"],
+    description=CONTENT["en"]["app_description"],
     version="1.0.0",
     lifespan=lifespan,
     docs_url=None,
@@ -180,376 +172,198 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# Custom docs — ReDoc at /docs
+# OpenAPI spec helpers — patch descriptions server-side per language
 # ---------------------------------------------------------------------------
 
-REDOC_HTML = """<!DOCTYPE html>
-<html>
+def build_openapi_spec(lang: str) -> dict:
+    """Return a patched OpenAPI spec with descriptions in the requested language."""
+    c = CONTENT[lang]
+
+    # Get the base spec generated by FastAPI
+    base = app.openapi()
+
+    # Deep copy to avoid mutating the cached spec
+    spec = json.loads(json.dumps(base))
+
+    # Patch app info
+    spec["info"]["title"]       = c["app_title"]
+    spec["info"]["description"] = c["app_description"]
+
+    # Patch tags
+    spec["tags"] = [
+        {"name": c["tag_stations"],     "description": c["tag_stations_desc"]},
+        {"name": c["tag_elements"],     "description": c["tag_elements_desc"]},
+        {"name": c["tag_observations"], "description": c["tag_observations_desc"]},
+    ]
+
+    # Remap tag names on each operation if language is ET
+    if lang == "et":
+        tag_map = {
+            "Stations":     c["tag_stations"],
+            "Elements":     c["tag_elements"],
+            "Observations": c["tag_observations"],
+        }
+        for path_item in spec.get("paths", {}).values():
+            for op in path_item.values():
+                if isinstance(op, dict) and "tags" in op:
+                    op["tags"] = [tag_map.get(t, t) for t in op["tags"]]
+
+    # Patch endpoint descriptions
+    patches = {
+        "/v1/stations/hydro":              {"get": {"description": c["stations_hydro_list"]}},
+        "/v1/stations/hydro/{station_code}": {"get": {"description": c["stations_hydro_get"]}},
+        "/v1/stations/meteo":              {"get": {"description": c["stations_meteo_list"]}},
+        "/v1/stations/meteo/{station_code}": {"get": {"description": c["stations_meteo_get"]}},
+        "/v1/elements":                    {"get": {"description": c["elements"]}},
+        "/v1/observations/hydro":          {"get": {"description": c["obs_hydro"]}},
+        "/v1/observations/hydro/latest":   {"get": {"description": c["obs_hydro_latest"]}},
+        "/v1/observations/meteo":          {"get": {"description": c["obs_meteo"]}},
+    }
+
+    for path, methods in patches.items():
+        if path in spec.get("paths", {}):
+            for method, patch in methods.items():
+                if method in spec["paths"][path]:
+                    spec["paths"][path][method].update(patch)
+
+    return spec
+
+# ---------------------------------------------------------------------------
+# Bilingual OpenAPI spec endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/openapi-en.json", include_in_schema=False)
+async def openapi_en():
+    return JSONResponse(build_openapi_spec("en"))
+
+
+@app.get("/openapi-et.json", include_in_schema=False)
+async def openapi_et():
+    return JSONResponse(build_openapi_spec("et"))
+
+# ---------------------------------------------------------------------------
+# Stoplight Elements — /docs
+# ---------------------------------------------------------------------------
+
+ELEMENTS_HTML = """<!DOCTYPE html>
+<html lang="en">
 <head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>deng-hydro-climate API</title>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/@stoplight/elements/web-components.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements/styles.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * {{ box-sizing: border-box; }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 
-    body {{
-      margin: 0;
-      font-family: 'Raleway', Arial, sans-serif;
+    html, body {{
+      height: 100%;
+      font-family: 'Raleway', sans-serif;
+    }}
+
+    /* Fill full viewport */
+    elements-api {{
+      display: block;
+      height: calc(100vh - 40px);
+    }}
+
+    /* ── Language bar — top, clean ── */
+    #lang-bar {{
+      height: 40px;
+      background: #f8f9fc;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 8px;
+      font-family: 'Raleway', sans-serif;
+    }}
+
+    #lang-bar .label {{
+      font-size: 11px;
+      color: #9ca3af;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-right: 4px;
+    }}
+
+    .lang-btn {{
+      padding: 3px 12px;
+      border-radius: 4px;
+      border: 1px solid #e5e7eb;
       background: #fff;
-    }}
-
-    /* ── Sidebar collapse toggle ── */
-    #sidebar-toggle {{
-      position: fixed;
-      top: 50%;
-      left: 0;
-      transform: translateY(-50%);
-      z-index: 10000;
-      width: 18px;
-      height: 48px;
-      background: #e5e7eb;
-      border: none;
-      border-radius: 0 6px 6px 0;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'Raleway', sans-serif;
       color: #6b7280;
-      transition: background 0.15s;
-      padding: 0;
-    }}
-    #sidebar-toggle:hover {{ background: #d1d5db; color: #374151; }}
-
-    /* When sidebar is hidden, push ReDoc content to fill screen */
-    body.sidebar-hidden #sidebar-toggle {{ left: 0; }}
-    body.sidebar-hidden [class*="menu-content"],
-    body.sidebar-hidden [class*="SideMenu"],
-    body.sidebar-hidden aside {{
-      display: none !important;
-    }}
-    body.sidebar-hidden [class*="api-content"] {{
-      margin-left: 0 !important;
-      padding-left: 2rem !important;
-    }}
-
-    /* ── Language toggle — bottom left, discrete ── */
-    #lang-bar {{
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Raleway', Arial, sans-serif;
-    }}
-    #lang-bar span {{
-      color: #9ca3af;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      font-weight: 500;
-    }}
-    .lang-btn {{
-      padding: 3px 9px;
-      border-radius: 4px;
-      border: 1px solid #e5e7eb;
-      background: #f9fafb;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 600;
-      font-family: 'Raleway', Arial, sans-serif;
-      color: #6b7280;
+      letter-spacing: 0.06em;
       transition: all 0.15s;
-      letter-spacing: 0.05em;
     }}
+
     .lang-btn.active {{
       background: #1a56db;
       color: #fff;
       border-color: #1a56db;
     }}
-    .lang-btn:hover:not(.active) {{ background: #f3f4f6; color: #374151; }}
 
-    /* ── Hide Redocly footer ── */
-    [class*="powered-by"],
-    a[href*="redocly"],
-    a[href*="redoc.ly"] {{
-      display: none !important;
-    }}
-  </style>
-</head>
-<body>
-
-  <!-- Sidebar collapse toggle -->
-  <button id="sidebar-toggle" title="Toggle sidebar" onclick="toggleSidebar()">&#8942;</button>
-
-  <!-- Language toggle — bottom left -->
-  <div id="lang-bar">
-    <span>Keel / Lang</span>
-    <button class="lang-btn" id="btn-et" onclick="setLang('et')">ET</button>
-    <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
-  </div>
-
-  <div id="redoc-container"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
-  <script>
-    const DESCRIPTIONS = {descriptions_json};
-
-    // ── Sidebar toggle ──
-    function toggleSidebar() {{
-      document.body.classList.toggle('sidebar-hidden');
-      const btn = document.getElementById('sidebar-toggle');
-      btn.innerHTML = document.body.classList.contains('sidebar-hidden') ? '&#9654;' : '&#8942;';
+    .lang-btn:hover:not(.active) {{
+      background: #f3f4f6;
+      color: #374151;
     }}
 
-    // ── Language toggle ──
-    function setLang(lang) {{
-      localStorage.setItem('api_lang', lang);
-      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-      document.getElementById('btn-et').classList.toggle('active', lang === 'et');
-      renderDocs(lang);
-    }}
-
-    // ── Fetch live sample data for right panel ──
-    async function fetchSamples() {{
-      const [hydroResp, meteoResp, stationsHydroResp, stationsMeteoResp, elementsResp] = await Promise.all([
-        fetch('/v1/observations/hydro?limit=1'),
-        fetch('/v1/observations/meteo?limit=1'),
-        fetch('/v1/stations/hydro'),
-        fetch('/v1/stations/meteo'),
-        fetch('/v1/elements'),
-      ]);
-      return {{
-        obs_hydro:      await hydroResp.json(),
-        obs_meteo:      await meteoResp.json(),
-        stations_hydro: await stationsHydroResp.json(),
-        stations_meteo: await stationsMeteoResp.json(),
-        elements:       await elementsResp.json(),
-      }};
-    }}
-
-    // ── Inject live samples into OpenAPI spec as examples ──
-    function injectSamples(spec, samples) {{
-      const inject = (path, sample) => {{
-        if (spec.paths[path]?.get) {{
-          spec.paths[path].get.responses = spec.paths[path].get.responses || {{}};
-          spec.paths[path].get.responses['200'] = {{
-            description: 'Success',
-            content: {{
-              'application/json': {{
-                example: sample,
-              }}
-            }}
-          }};
-        }}
-      }};
-      inject('/v1/observations/hydro',        samples.obs_hydro);
-      inject('/v1/observations/hydro/latest', samples.obs_hydro);
-      inject('/v1/observations/meteo',        samples.obs_meteo);
-      inject('/v1/stations/hydro',            samples.stations_hydro.slice(0, 2));
-      inject('/v1/stations/meteo',            samples.stations_meteo.slice(0, 2));
-      inject('/v1/elements',                  samples.elements);
-    }}
-
-    async function renderDocs(lang) {{
-      const [resp, samples] = await Promise.all([
-        fetch('/openapi.json'),
-        fetchSamples(),
-      ]);
-      const spec = await resp.json();
-      const d = DESCRIPTIONS[lang];
-
-      // Patch app description
-      spec.info.description = d.app;
-
-      // Patch endpoint descriptions
-      const patches = {{
-        '/v1/stations/hydro':                {{ get: {{ description: d.stations_hydro_list }} }},
-        '/v1/stations/hydro/{{station_code}}':   {{ get: {{ description: d.stations_hydro_get }} }},
-        '/v1/stations/meteo':                {{ get: {{ description: d.stations_meteo_list }} }},
-        '/v1/stations/meteo/{{station_code}}':   {{ get: {{ description: d.stations_meteo_get }} }},
-        '/v1/elements':                      {{ get: {{ description: d.elements }} }},
-        '/v1/observations/hydro':            {{ get: {{ description: d.obs_hydro }} }},
-        '/v1/observations/hydro/latest':     {{ get: {{ description: d.obs_hydro_latest }} }},
-        '/v1/observations/meteo':            {{ get: {{ description: d.obs_meteo }} }},
-      }};
-
-      for (const [path, methods] of Object.entries(patches)) {{
-        if (spec.paths[path]) {{
-          for (const [method, patch] of Object.entries(methods)) {{
-            if (spec.paths[path][method]) {{
-              Object.assign(spec.paths[path][method], patch);
-            }}
-          }}
-        }}
-      }}
-
-      // Inject live sample data
-      injectSamples(spec, samples);
-
-      document.getElementById('redoc-container').innerHTML = '';
-      Redoc.init(spec, {{
-        scrollYOffset: 0,
-        hideDownloadButton: true,
-        nativeScrollbars: true,
-        theme: {{
-          colors: {{
-            primary: {{ main: '#1a56db' }},
-          }},
-          typography: {{
-            fontFamily: "'Raleway', Arial, sans-serif",
-            headings: {{
-              fontFamily: "'Raleway', Arial, sans-serif",
-              fontWeight: '700',
-            }},
-          }},
-          sidebar: {{
-            backgroundColor: '#f8f9fc',
-            textColor: '#374151',
-          }},
-          rightPanel: {{
-            backgroundColor: '#1e2433',
-          }},
-        }},
-      }}, document.getElementById('redoc-container'));
-    }}
-
-    const lang = localStorage.getItem('api_lang') || 'et';
-    setLang(lang);
-  </script>
-</body>
-</html>"""
-
-SWAGGER_HTML = """<!DOCTYPE html>
-<html>
-<head>
-  <title>deng-hydro-climate API — Developer Docs</title>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
-  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body {{ margin: 0; font-family: 'Raleway', Arial, sans-serif; }}
-    #lang-bar {{
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Raleway', Arial, sans-serif;
-    }}
-    #lang-bar span {{
-      color: #9ca3af;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      font-weight: 500;
-    }}
-    .lang-btn {{
-      padding: 3px 9px;
-      border-radius: 4px;
-      border: 1px solid #e5e7eb;
-      background: #f9fafb;
-      cursor: pointer;
+    .lang-bar-right {{
+      margin-left: auto;
       font-size: 11px;
-      font-weight: 600;
-      font-family: 'Raleway', Arial, sans-serif;
-      color: #6b7280;
-      transition: all 0.15s;
-      letter-spacing: 0.05em;
+      color: #d1d5db;
+      font-family: 'Raleway', sans-serif;
+      letter-spacing: 0.04em;
     }}
-    .lang-btn.active {{
-      background: #1a56db;
-      color: #fff;
-      border-color: #1a56db;
-    }}
-    .lang-btn:hover:not(.active) {{ background: #f3f4f6; color: #374151; }}
-    .swagger-ui .topbar {{ display: none; }}
-    .swagger-ui, .swagger-ui * {{ font-family: 'Raleway', Arial, sans-serif !important; }}
   </style>
 </head>
 <body>
-  <div id="lang-bar">
-    <span>Keel / Lang</span>
-    <button class="lang-btn" id="btn-et" onclick="setLang('et')">ET</button>
-    <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
-  </div>
-  <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
-  <script>
-    const DESCRIPTIONS = {descriptions_json};
 
+  <!-- Language bar -->
+  <div id="lang-bar">
+    <span class="label">Language</span>
+    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="btn-et" onclick="setLang('et')">ET</button>
+    <span class="lang-bar-right">deng-hydro-climate API &nbsp;·&nbsp; v1.0.0</span>
+  </div>
+
+  <!-- Stoplight Elements -->
+  <elements-api
+    id="elements"
+    apiDescriptionUrl="/openapi-en.json"
+    router="hash"
+    layout="sidebar"
+  />
+
+  <script>
     function setLang(lang) {{
       localStorage.setItem('api_lang', lang);
       document.getElementById('btn-en').classList.toggle('active', lang === 'en');
       document.getElementById('btn-et').classList.toggle('active', lang === 'et');
-      renderDocs(lang);
+      document.getElementById('elements').setAttribute(
+        'apiDescriptionUrl',
+        lang === 'en' ? '/openapi-en.json' : '/openapi-et.json'
+      );
     }}
 
-    async function renderDocs(lang) {{
-      const resp = await fetch('/openapi.json');
-      const spec = await resp.json();
-      const d = DESCRIPTIONS[lang];
-
-      spec.info.description = d.app;
-
-      const patches = {{
-        '/v1/stations/hydro':                {{ get: {{ description: d.stations_hydro_list }} }},
-        '/v1/stations/hydro/{{station_code}}':   {{ get: {{ description: d.stations_hydro_get }} }},
-        '/v1/stations/meteo':                {{ get: {{ description: d.stations_meteo_list }} }},
-        '/v1/stations/meteo/{{station_code}}':   {{ get: {{ description: d.stations_meteo_get }} }},
-        '/v1/elements':                      {{ get: {{ description: d.elements }} }},
-        '/v1/observations/hydro':            {{ get: {{ description: d.obs_hydro }} }},
-        '/v1/observations/hydro/latest':     {{ get: {{ description: d.obs_hydro_latest }} }},
-        '/v1/observations/meteo':            {{ get: {{ description: d.obs_meteo }} }},
-      }};
-
-      for (const [path, methods] of Object.entries(patches)) {{
-        if (spec.paths[path]) {{
-          for (const [method, patch] of Object.entries(methods)) {{
-            if (spec.paths[path][method]) {{
-              Object.assign(spec.paths[path][method], patch);
-            }}
-          }}
-        }}
-      }}
-
-      SwaggerUIBundle({{
-        spec: spec,
-        dom_id: '#swagger-ui',
-        presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
-        layout: 'BaseLayout',
-        deepLinking: true,
-      }});
-    }}
-
-    const lang = localStorage.getItem('api_lang') || 'et';
-    setLang(lang);
+    // Restore saved language preference
+    const saved = localStorage.getItem('api_lang') || 'en';
+    if (saved !== 'en') setLang(saved);
   </script>
+
 </body>
 </html>"""
 
-# ---------------------------------------------------------------------------
-# Custom doc routes
-# ---------------------------------------------------------------------------
 
 @app.get("/docs", include_in_schema=False)
-async def redoc():
-    import json
-    html = REDOC_HTML.format(descriptions_json=json.dumps(DESCRIPTIONS))
-    return HTMLResponse(html)
-
-
-@app.get("/docs-dev", include_in_schema=False)
-async def swagger():
-    import json
-    html = SWAGGER_HTML.format(descriptions_json=json.dumps(DESCRIPTIONS))
-    return HTMLResponse(html)
+async def docs():
+    return HTMLResponse(ELEMENTS_HTML)
 
 # ---------------------------------------------------------------------------
 # Helpers
