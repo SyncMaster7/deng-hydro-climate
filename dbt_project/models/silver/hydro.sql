@@ -92,18 +92,17 @@ final AS (
         COALESCE(s.station_category,       r.station_category)       AS station_category,
         COALESCE(s.station_altitude_msl_m, r.station_altitude_msl_m) AS station_altitude_msl_m,
 
-        -- EH2000 water level correction:
-        -- station_altitude_msl_m is the gauge zero elevation relative to EH2000
-        -- Adding it converts the raw reading to EH2000 (Amsterdam zero)
-        -- Applies to all stations with a known gauge zero, not just coastal
-        -- Verified against official ilmateenistus.ee values:
-        --   Vihterpalu (monitoring, +5.56m): wl_avg + 5.56 = EH2000
-        --   Narva linn  (monitoring, -0.90m): wl_avg - 0.90 = EH2000
+        -- EH2000 absolute water level (metres above EH2000 datum):
+        -- wl_avg is in cm — divide by 100 to convert to metres
+        -- station_altitude_msl_m is the gauge zero elevation in EH2000 (metres)
+        -- Result: absolute water surface elevation in metres (EH2000)
+        -- Verified: Vasknarva wl_avg=83.5cm → (0.835 + 29.18) = 30.015m ≈ ilmateenistus 30.02m
+        -- NOTE: use wl_avg (raw cm) for precipitation/temperature comparisons — not this column
         CASE
             WHEN COALESCE(s.station_altitude_msl_m, r.station_altitude_msl_m) IS NOT NULL
-            THEN p.wl_avg + COALESCE(s.station_altitude_msl_m, r.station_altitude_msl_m)
-            ELSE p.wl_avg
-        END AS wl_avg_corrected
+            THEN (p.wl_avg / 100.0) + COALESCE(s.station_altitude_msl_m, r.station_altitude_msl_m)
+            ELSE NULL
+        END AS wl_avg_eh2000
 
     FROM pivoted p
     LEFT JOIN snap s
