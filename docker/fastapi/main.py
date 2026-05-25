@@ -52,8 +52,8 @@ APP_DESCRIPTION = (
     "Andmed mis ajast püsivad muutumatud või muutuvad väga harva, näiteks seirejaamade metaandmed — "
     "koordinaadid, valgala, kõrgus merepinnast jms — on saadaval eraldi API otspunktidest. "
     "Mõõtmisandmed on eraldatud seirejaamade metaandmetest ning sisaldavad mõõtmisandmeid. "
-    "Seeläbi vähendame andmete tarbimiseks vajalikku ressursikasutust.\n\n"
-    "Allpool on toodud lihtne näide, kuidas API-t Pythonis kasutada:\n\n"
+    "Seeläbi vähendame andmete tarbimiseks vajalikku ressursikasutust.\n\n\n"
+    "Lihtne API kasitamise näide kasutades Pythonit:\n\n"
     "```python\n"
     "import requests\n\n"
     "# Laadi seirejaamade metaandmed üks kord\n"
@@ -76,23 +76,23 @@ APP_DESCRIPTION = (
 )
 
 CONTENT = {
-    "tag_stations_desc":     "Mõõtme-otspunktid — hüdromeetria- ja meteoroloogiajaamade metaandmed. Laadi üks kord ja vahemälusta.",
-    "tag_elements_desc":     "Mõõtmistüüpide kataloog — kõik saadaolevad elemendikoodid koos kirjelduse ja ühikuga.",
-    "tag_observations_desc": "Fakti-otspunktid — aegridade vaatlused filtreeritud jaama, elemendi koodi ja ajavahemiku järgi.",
-    "stations_hydro_list":   "Tagastab kõik 76 hüdromeetrijaama täieliku metaandmetega. Laadi üks kord ja vahemälusta — jaama andmed muutuvad harva.",
-    "stations_hydro_get":    "Tagastab ühe hüdromeetrijaama metaandmed jaama koodi (station_code) järgi.",
-    "stations_meteo_list":   "Tagastab kõik 25 meteoroloogiajaama täieliku metaandmetega. Laadi üks kord ja vahemälusta — jaama andmed muutuvad harva.",
-    "stations_meteo_get":    "Tagastab ühe meteoroloogiajaama metaandmed jaama koodi (station_code) järgi.",
-    "elements":              "Tagastab kõik saadaolevad elemendikoodid koos kirjelduse, ühiku ja allikaga. Kasuta source=hydro või source=meteo filtreerimiseks.",
+    "tag_stations_desc":     "Hüdromeetria- ja meteoroloogiajaamade metaandmed.",
+    "tag_elements_desc":     "Mõõtmistüüpide kataloog — kõik saadaolevad elemendikoodid koos kirjelduste ja ühikutega.",
+    "tag_observations_desc": "Vaatluste aegread filtreeritud jaama, elemendi koodi ja ajavahemiku järgi.",
+    "stations_hydro_list":   "Kõik hüdromeetrijaamad koos metaandmetega.",
+    "stations_hydro_get":    "Hüdromeetrijaama metaandmed jaama koodi (station_code) alusel.",
+    "stations_meteo_list":   "Kõik meteoroloogiajaamad koos metaandmetega.",
+    "stations_meteo_get":    "Meteoroloogiajaama metaandmed jaama koodi (station_code) alusel.",
+    "elements":              "Kõik saadaolevad elemendikoodid koos kirjelduse, ühiku ja allikaga. Kasuta filtreerimiseks source=hydro või source=meteo.",
     "obs_hydro": (
-        "Tagastab hüdroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
+        "Hüdroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
         "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
         "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
         "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
     ),
-    "obs_hydro_latest": "Tagastab iga jaama ja elemendi koodi viimase vaatluse. Kasulik armatuurlaua hetkeseisu kuvamiseks.",
+    "obs_hydro_latest": "Iga jaama ja elemendi koodi viimane vaatlus. Kasulik näidikulaua hetkeseisu kuvamiseks.",
     "obs_meteo": (
-        "Tagastab meteoroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
+        "Meteoroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
         "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
         "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
         "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
