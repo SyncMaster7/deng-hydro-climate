@@ -32,44 +32,80 @@ RATE_LIMIT    = os.getenv("RATE_LIMIT", "60/minute")
 DEFAULT_LIMIT = 5  # rows returned when no filters provided
 
 # ---------------------------------------------------------------------------
-# API descriptions — English
+# API content — Estonian
 # ---------------------------------------------------------------------------
 
+APP_DESCRIPTION = (
+    "Eesti Hydro-Meteo API pakub avalikku juurdepääsu Eesti hüdroloogiliste ja meteoroloogiliste "
+    "seirejaamade mõõtmisandmetele. Andmed pärinevad Keskkonnaagentuuri keskkonnaportaalist "
+    "(keskkonnaandmed.envir.ee) ning hõlmavad 76 hüdromeeetria ja 25 meteoroloogia jaama üle kogu Eesti.\n\n"
+    "Hüdroloogilised andmed sisaldavad veetaseme, veetemperatuuri ja vee äravoolu tunniseid "
+    "mõõtmistulemusi alates 2025-01. Meteoroloogilised andmed sisaldavad andmeid sademete, "
+    "õhutemperatuuri, tuule kiiruse ja suuna, õhurõhu, suhtelise õhuniiskuse ning päikesepaiste "
+    "kestuse kohta. Kõik vaatlused on esitatud Eesti kohalikus ajas (EET/EEST). "
+    "Andmed avaldatakse viivitusega — hüdroloogilised andmed on ligikaudu 46 tundi ja "
+    "meteoroloogilised andmed 28 tundi reaalajast maas.\n\n"
+    "Päringute tegemisel on soovitatav kasutada ajavahemiku määramise parameetreid `from_ts` ja `to_ts`. "
+    "Kui päringu tegemisel filtreid ei ole määratud, tagastatakse vaikimisi tulemuseks viimasel "
+    "saadaoleval ajatemplil kuni 5 viimast väärtust.\n\n"
+    "API on üles ehitatud tähtskeemi põhimõttel mis sisaldab dimensioonide- ja faktitabelit. "
+    "Andmed mis ajast püsivad muutumatud või muutuvad väga harva, näiteks seirejaamade metaandmed — "
+    "koordinaadid, valgala, kõrgus merepinnast jms — on saadaval eraldi API otspunktidest. "
+    "Mõõtmisandmed on eraldatud seirejaamade metaandmetest ning sisaldavad mõõtmisandmeid. "
+    "Seeläbi vähendame andmete tarbimiseks vajalikku ressursikasutust.\n\n"
+    "Allpool on toodud lihtne näide, kuidas API-t Pythonis kasutada:\n\n"
+    "```python\n"
+    "import requests\n\n"
+    "# Laadi seirejaamade metaandmed üks kord\n"
+    "stations = requests.get(\"https://api.deng.ee/v1/stations/hydro\").json()\n\n"
+    "# Päri viimase 3 päeva veetaseme andmed konkreetsele jaamale\n"
+    "obs = requests.get(\n"
+    "    \"https://api.deng.ee/v1/observations/hydro\",\n"
+    "    params={\n"
+    "        \"station_code\": \"41061\",\n"
+    "        \"element_code\": \"wl_avg\",\n"
+    "        \"from_ts\": \"2026-05-20T00:00:00\",\n"
+    "        \"to_ts\": \"2026-05-23T00:00:00\",\n"
+    "        \"limit\": 100\n"
+    "    }\n"
+    ").json()\n"
+    "```\n\n"
+    "Andmed on avaldatud Creative Commonsi litsentsi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) "
+    "alusel. Andmete kasutamisel tuleb viidata allikale: Keskkonnaagentur, "
+    "[keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee) ning käesolevale API-le (api.deng.ee)."
+)
+
 CONTENT = {
-    "app_description": (
-        "Public API for Estonian hydrological and meteorological observations.\n\n"
-        "**Fact/dim design** — fetch station metadata once, query observations by "
-        "station and element code. No authentication required. "
-        "Rate limited to 60 requests/minute.\n\n"
-        "**Endpoints overview:**\n"
-        "- `/v1/stations/*` — dimension endpoints, fetch once and cache\n"
-        "- `/v1/elements` — measurement type catalogue\n"
-        "- `/v1/observations/*` — fact endpoints, filter by station, element, and time range\n\n"
-        "**Default behaviour:** when no filters are provided, returns the 5 most recent "
-        "rows at the latest available timestamp. Due to pipeline lag (~3 days), use "
-        "explicit `from_ts`/`to_ts` for historical queries."
-    ),
-    "tag_stations_desc":     "Dimension endpoints — hydrometric and meteorological station metadata. Fetch once and cache.",
-    "tag_elements_desc":     "Measurement type catalogue — all available element codes with description and unit.",
-    "tag_observations_desc": "Fact endpoints — time-series observations filtered by station, element code, and time range.",
-    "stations_hydro_list":   "Returns all 76 hydrometric stations with full metadata. Fetch once and cache — station data changes rarely.",
-    "stations_hydro_get":    "Returns metadata for a single hydrometric station by station_code.",
-    "stations_meteo_list":   "Returns all 25 meteorological stations with full metadata. Fetch once and cache — station data changes rarely.",
-    "stations_meteo_get":    "Returns metadata for a single meteorological station by station_code.",
-    "elements":              "Returns all available element codes with description, unit, and source. Use `source=hydro` or `source=meteo` to filter.",
+    "tag_stations_desc":     "Mõõtme-otspunktid — hüdromeetria- ja meteoroloogiajaamade metaandmed. Laadi üks kord ja vahemälusta.",
+    "tag_elements_desc":     "Mõõtmistüüpide kataloog — kõik saadaolevad elemendikoodid koos kirjelduse ja ühikuga.",
+    "tag_observations_desc": "Fakti-otspunktid — aegridade vaatlused filtreeritud jaama, elemendi koodi ja ajavahemiku järgi.",
+    "stations_hydro_list":   "Tagastab kõik 76 hüdromeetrijaama täieliku metaandmetega. Laadi üks kord ja vahemälusta — jaama andmed muutuvad harva.",
+    "stations_hydro_get":    "Tagastab ühe hüdromeetrijaama metaandmed jaama koodi (station_code) järgi.",
+    "stations_meteo_list":   "Tagastab kõik 25 meteoroloogiajaama täieliku metaandmetega. Laadi üks kord ja vahemälusta — jaama andmed muutuvad harva.",
+    "stations_meteo_get":    "Tagastab ühe meteoroloogiajaama metaandmed jaama koodi (station_code) järgi.",
+    "elements":              "Tagastab kõik saadaolevad elemendikoodid koos kirjelduse, ühiku ja allikaga. Kasuta source=hydro või source=meteo filtreerimiseks.",
     "obs_hydro": (
-        "Returns hydrological observations filtered by station, element code, and time range. "
-        "All timestamps are in local Estonian time (EET/EEST).\n\n"
-        "**Default (no filters):** returns 5 rows at the latest available timestamp.\n"
-        "**With filters:** returns up to `limit` rows ordered by `obs_ts` descending."
+        "Tagastab hüdroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
+        "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
+        "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
+        "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
     ),
-    "obs_hydro_latest": "Returns the most recent observation per station per element code. Useful for dashboard current-state views.",
+    "obs_hydro_latest": "Tagastab iga jaama ja elemendi koodi viimase vaatluse. Kasulik armatuurlaua hetkeseisu kuvamiseks.",
     "obs_meteo": (
-        "Returns meteorological observations filtered by station, element code, and time range. "
-        "All timestamps are in local Estonian time (EET/EEST).\n\n"
-        "**Default (no filters):** returns 5 rows at the latest available timestamp.\n"
-        "**With filters:** returns up to `limit` rows ordered by `obs_ts` descending."
+        "Tagastab meteoroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
+        "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
+        "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
+        "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
     ),
+    "param_station_code_hydro": "Komaga eraldatud jaama koodid, nt 41061,26227",
+    "param_station_code_meteo": "Komaga eraldatud jaama koodid, nt 26242,26231",
+    "param_element_code_hydro": "Komaga eraldatud elemendikoodid, nt wl_avg,wl_min",
+    "param_element_code_meteo": "Komaga eraldatud elemendikoodid, nt pr1h,ta",
+    "param_element_code_latest": "Komaga eraldatud elemendikoodid, nt wl_avg,wt_avg",
+    "param_from_ts":  "Ajavahemiku algus (ISO 8601).",
+    "param_to_ts":    "Ajavahemiku lõpp (ISO 8601). Vaikimisi praegune aeg.",
+    "param_limit":    "Maksimaalne tagastatavate ridade arv.",
+    "param_source":   "Filtreeri allika järgi: hydro või meteo",
 }
 
 # ---------------------------------------------------------------------------
@@ -101,9 +137,9 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="Estonian Hydro-Meteo API",
-    description=CONTENT["app_description"],
-    version="1.0.0",
+    title="Eesti Hydro-Meteo API",
+    description=APP_DESCRIPTION,
+    version="2.1.1",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
@@ -121,7 +157,7 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# OpenAPI spec — patched with descriptions, error schemas removed
+# OpenAPI spec — patched with descriptions, contact, licence, schemas removed
 # ---------------------------------------------------------------------------
 
 def build_openapi_spec() -> dict:
@@ -130,24 +166,47 @@ def build_openapi_spec() -> dict:
     base = app.openapi()
     spec = json.loads(json.dumps(base))
 
-    spec["info"]["title"]       = "Estonian Hydro-Meteo API"
-    spec["info"]["description"] = CONTENT["app_description"]
+    # Info
+    spec["info"]["title"]          = "Eesti Hydro-Meteo API"
+    spec["info"]["description"]    = APP_DESCRIPTION
+    spec["info"]["termsOfService"] = "https://creativecommons.org/licenses/by/4.0/"
+    spec["info"]["contact"] = {
+        "email": "info@deng.ee",
+        "url":   "https://github.com/SyncMaster7/deng-hydro-climate",
+    }
+    spec["info"]["license"] = {
+        "name": "CC BY 4.0",
+        "url":  "https://creativecommons.org/licenses/by/4.0/",
+    }
 
+    # Tags
     spec["tags"] = [
-        {"name": "Stations",     "description": CONTENT["tag_stations_desc"]},
-        {"name": "Elements",     "description": CONTENT["tag_elements_desc"]},
-        {"name": "Observations", "description": CONTENT["tag_observations_desc"]},
+        {"name": "Seirejaamad",   "description": CONTENT["tag_stations_desc"]},
+        {"name": "Elemendid",   "description": CONTENT["tag_elements_desc"]},
+        {"name": "Vaatlused", "description": CONTENT["tag_observations_desc"]},
     ]
 
+    # Remap tag names on operations
+    tag_map = {
+        "Stations":     "Seirejaamad",
+        "Elements":     "Elemendid",
+        "Observations": "Vaatlused",
+    }
+    for path_item in spec.get("paths", {}).values():
+        for op in path_item.values():
+            if isinstance(op, dict) and "tags" in op:
+                op["tags"] = [tag_map.get(t, t) for t in op["tags"]]
+
+    # Endpoint descriptions
     patches = {
-        "/v1/stations/hydro":                {"get": {"description": CONTENT["stations_hydro_list"]}},
-        "/v1/stations/hydro/{station_code}": {"get": {"description": CONTENT["stations_hydro_get"]}},
-        "/v1/stations/meteo":                {"get": {"description": CONTENT["stations_meteo_list"]}},
-        "/v1/stations/meteo/{station_code}": {"get": {"description": CONTENT["stations_meteo_get"]}},
-        "/v1/elements":                      {"get": {"description": CONTENT["elements"]}},
-        "/v1/observations/hydro":            {"get": {"description": CONTENT["obs_hydro"]}},
-        "/v1/observations/hydro/latest":     {"get": {"description": CONTENT["obs_hydro_latest"]}},
-        "/v1/observations/meteo":            {"get": {"description": CONTENT["obs_meteo"]}},
+        "/v1/stations/hydro":                {"get": {"description": CONTENT["stations_hydro_list"], "summary": "Kuva kõik hüdromeetriajaamad"}},
+        "/v1/stations/hydro/{station_code}": {"get": {"description": CONTENT["stations_hydro_get"],  "summary": "Kuva üks hüdromeetriajaam"}},
+        "/v1/stations/meteo":                {"get": {"description": CONTENT["stations_meteo_list"], "summary": "Kuva kõik meteoroloogiajaamad"}},
+        "/v1/stations/meteo/{station_code}": {"get": {"description": CONTENT["stations_meteo_get"],  "summary": "Kuva üks meteoroloogiajaam"}},
+        "/v1/elements":                      {"get": {"description": CONTENT["elements"],            "summary": "Kuva kõik mõõtmiselemendi koodid"}},
+        "/v1/observations/hydro":            {"get": {"description": CONTENT["obs_hydro"],           "summary": "Päri hüdroloogilisi vaatlusi"}},
+        "/v1/observations/hydro/latest":     {"get": {"description": CONTENT["obs_hydro_latest"],    "summary": "Viimane hüdroloogiline vaatlus jaama kohta"}},
+        "/v1/observations/meteo":            {"get": {"description": CONTENT["obs_meteo"],           "summary": "Päri meteoroloogilisi vaatlusi"}},
     }
 
     for path, methods in patches.items():
@@ -182,11 +241,11 @@ async def openapi():
 # ---------------------------------------------------------------------------
 
 DOCS_HTML = """<!DOCTYPE html>
-<html lang="en">
+<html lang="et">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Estonian Hydro-Meteo API</title>
+  <title>Eesti Hydro-Meteo API</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
   <style>
@@ -230,6 +289,21 @@ DOCS_HTML = """<!DOCTYPE html>
       font-family: 'JetBrains Mono', monospace !important;
     }
 
+    /* ── Soften inline code in descriptions ── */
+    .swagger-ui .info p code,
+    .swagger-ui .info li code,
+    .swagger-ui .opblock-description-wrapper p code,
+    .swagger-ui .opblock-description-wrapper li code {
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 0.82em;
+      font-weight: 400;
+      background: #eef0f4;
+      color: #374151;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: none;
+    }
+
     /* ── Topbar — clean white ── */
     .swagger-ui .topbar {
       background: #ffffff;
@@ -262,6 +336,15 @@ DOCS_HTML = """<!DOCTYPE html>
       background: #2563eb;
       border-radius: 4px;
       font-family: 'Nunito', sans-serif !important;
+    }
+
+    /* ── Info links (contact, licence, ToS) ── */
+    .swagger-ui .info a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+    .swagger-ui .info a:hover {
+      text-decoration: underline;
     }
 
     /* ── Tag headings ── */
@@ -332,7 +415,7 @@ DOCS_HTML = """<!DOCTYPE html>
       padding: 0 24px;
     }
 
-    /* ── Models section — hide it ── */
+    /* ── Models section — hide ── */
     .swagger-ui section.models {
       display: none;
     }
@@ -343,7 +426,7 @@ DOCS_HTML = """<!DOCTYPE html>
   <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
   <script>
     SwaggerUIBundle({
-      url: "/openapi.json",
+      url: window.location.origin + "/openapi.json",
       dom_id: "#swagger-ui",
       presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
       layout: "BaseLayout",
@@ -387,7 +470,7 @@ def row_to_dict(record: asyncpg.Record) -> dict:
 
 @app.get(
     "/v1/stations/hydro",
-    summary="List all hydrometric stations",
+    summary="Kuva kõik hüdromeetriajaamad",
     tags=["Stations"],
 )
 @limiter.limit(RATE_LIMIT)
@@ -399,7 +482,7 @@ async def list_hydro_stations(request: Request):
 
 @app.get(
     "/v1/stations/hydro/{station_code}",
-    summary="Get a single hydrometric station",
+    summary="Kuva üks hüdromeetriajaam",
     tags=["Stations"],
 )
 @limiter.limit(RATE_LIMIT)
@@ -410,13 +493,13 @@ async def get_hydro_station(request: Request, station_code: int):
             station_code,
         )
     if row is None:
-        return JSONResponse(status_code=404, content={"detail": f"Station {station_code} not found."})
+        return JSONResponse(status_code=404, content={"detail": f"Jaama koodiga {station_code} ei leitud."})
     return row_to_dict(row)
 
 
 @app.get(
     "/v1/stations/meteo",
-    summary="List all meteorological stations",
+    summary="Kuva kõik meteoroloogiajaamad",
     tags=["Stations"],
 )
 @limiter.limit(RATE_LIMIT)
@@ -428,7 +511,7 @@ async def list_meteo_stations(request: Request):
 
 @app.get(
     "/v1/stations/meteo/{station_code}",
-    summary="Get a single meteorological station",
+    summary="Kuva üks meteoroloogiajaam",
     tags=["Stations"],
 )
 @limiter.limit(RATE_LIMIT)
@@ -439,19 +522,19 @@ async def get_meteo_station(request: Request, station_code: str):
             station_code,
         )
     if row is None:
-        return JSONResponse(status_code=404, content={"detail": f"Station {station_code} not found."})
+        return JSONResponse(status_code=404, content={"detail": f"Jaama koodiga {station_code} ei leitud."})
     return row_to_dict(row)
 
 
 @app.get(
     "/v1/elements",
-    summary="List all measurement element codes",
+    summary="Kuva kõik mõõtmiselemendi koodid",
     tags=["Elements"],
 )
 @limiter.limit(RATE_LIMIT)
 async def list_element_codes(
     request: Request,
-    source: Optional[str] = Query(None, description="Filter by source: 'hydro' or 'meteo'"),
+    source: Optional[str] = Query(None, description="Filtreeri allika järgi: hydro või meteo"),
 ):
     async with request.app.state.pool.acquire() as conn:
         if source:
@@ -471,17 +554,17 @@ async def list_element_codes(
 
 @app.get(
     "/v1/observations/hydro",
-    summary="Query hydrological observations",
+    summary="Päri hüdroloogilisi vaatlusi",
     tags=["Observations"],
 )
 @limiter.limit(RATE_LIMIT)
 async def get_hydro_observations(
     request: Request,
-    station_code: Optional[str] = Query(None, description="Comma-separated station codes, e.g. 41061,26227"),
-    element_code: Optional[str] = Query(None, description="Comma-separated element codes, e.g. wl_avg,wl_min"),
-    from_ts: Optional[datetime] = Query(None, description="Start of time range (ISO 8601)."),
-    to_ts: Optional[datetime] = Query(None, description="End of time range (ISO 8601). Defaults to now."),
-    limit: int = Query(10000, ge=1, le=50000, description="Max rows returned."),
+    station_code: Optional[str] = Query(None, description="Komaga eraldatud jaama koodid, nt 41061,26227"),
+    element_code: Optional[str] = Query(None, description="Komaga eraldatud elemendikoodid, nt wl_avg,wl_min"),
+    from_ts: Optional[datetime] = Query(None, description="Ajavahemiku algus (ISO 8601)."),
+    to_ts: Optional[datetime] = Query(None, description="Ajavahemiku lõpp (ISO 8601). Vaikimisi praegune aeg."),
+    limit: int = Query(10000, ge=1, le=50000, description="Maksimaalne tagastatavate ridade arv."),
 ):
     has_filters = any([station_code, element_code, from_ts, to_ts])
 
@@ -536,13 +619,13 @@ async def get_hydro_observations(
 
 @app.get(
     "/v1/observations/hydro/latest",
-    summary="Latest hydrological observation per station",
+    summary="Viimane hüdroloogiline vaatlus jaama kohta",
     tags=["Observations"],
 )
 @limiter.limit(RATE_LIMIT)
 async def get_hydro_latest(
     request: Request,
-    element_code: Optional[str] = Query(None, description="Comma-separated element codes, e.g. wl_avg,wt_avg"),
+    element_code: Optional[str] = Query(None, description="Komaga eraldatud elemendikoodid, nt wl_avg,wt_avg"),
 ):
     element_codes = [e.strip().lower() for e in element_code.split(",")] if element_code else None
 
@@ -570,17 +653,17 @@ async def get_hydro_latest(
 
 @app.get(
     "/v1/observations/meteo",
-    summary="Query meteorological observations",
+    summary="Päri meteoroloogilisi vaatlusi",
     tags=["Observations"],
 )
 @limiter.limit(RATE_LIMIT)
 async def get_meteo_observations(
     request: Request,
-    station_code: Optional[str] = Query(None, description="Comma-separated station codes, e.g. 26242,26231"),
-    element_code: Optional[str] = Query(None, description="Comma-separated element codes, e.g. pr1h,ta"),
-    from_ts: Optional[datetime] = Query(None, description="Start of time range (ISO 8601)."),
-    to_ts: Optional[datetime] = Query(None, description="End of time range (ISO 8601). Defaults to now."),
-    limit: int = Query(10000, ge=1, le=50000, description="Max rows returned."),
+    station_code: Optional[str] = Query(None, description="Komaga eraldatud jaama koodid, nt 26242,26231"),
+    element_code: Optional[str] = Query(None, description="Komaga eraldatud elemendikoodid, nt pr1h,ta"),
+    from_ts: Optional[datetime] = Query(None, description="Ajavahemiku algus (ISO 8601)."),
+    to_ts: Optional[datetime] = Query(None, description="Ajavahemiku lõpp (ISO 8601). Vaikimisi praegune aeg."),
+    limit: int = Query(10000, ge=1, le=50000, description="Maksimaalne tagastatavate ridade arv."),
 ):
     has_filters = any([station_code, element_code, from_ts, to_ts])
 
