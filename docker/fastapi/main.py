@@ -36,9 +36,8 @@ DEFAULT_LIMIT = 5  # rows returned when no filters provided
 # ---------------------------------------------------------------------------
 
 APP_DESCRIPTION = (
-    "**OpenAPI Schema:** https://api.deng.ee/openapi.json\n\n"
     "---\n\n"
-    "# Ülevaade\n\n"
+    "## Ülevaade\n\n"
     "Eesti Hydro-Meteo API pakub avalikku ja struktureeritud juurdepääsu Eesti hüdroloogilistele ja "
     "meteoroloogilistele mõõtmisandmetele. API on loodud eestkätt arendajatele ja andmeanalüüsi "
     "projektidele, võimaldades usaldusväärset ligipääsu Keskkonnaagentuuri (`keskkonnaandmed.envir.ee`) "
@@ -47,14 +46,14 @@ APP_DESCRIPTION = (
     "hüdromeetria- ja meteoroloogiajaamadest. Andmed sobivad kasutamiseks rakendustes, teadustöös, "
     "keskkonnaseires ning ETL-andmetorudes.\n\n"
     "---\n\n"
-    "# Andmed\n\n"
+    "## Andmed\n\n"
     "API sisaldab hüdroloogilisi ja meteoroloogilisi vaatlusandmeid alates 2025 aastast.\n\n"
-    "## Hüdroloogilised seireandmed\n\n"
+    "### Hüdroloogilised seireandmed\n\n"
     "Sisaldavad:\n"
     "- veetaset\n"
     "- veetemperatuuri\n"
     "- vee äravoolu mõõtmisi\n\n"
-    "## Meteoroloogilised seireandmed\n\n"
+    "### Meteoroloogilised seireandmed\n\n"
     "Sisaldavad:\n"
     "- sademete andmeid\n"
     "- õhutemperatuuri\n"
@@ -68,7 +67,7 @@ APP_DESCRIPTION = (
     "- hüdroloogilised seireandmed ligikaudu 46 tundi pärast mõõtmist\n"
     "- meteoroloogilised seireandmed ligikaudu 28 tundi pärast mõõtmist\n\n"
     "---\n\n"
-    "# Arhitektuur\n\n"
+    "## Arhitektuur\n\n"
     "API on üles ehitatud tähtskeemi (*star schema*) põhimõttel, eraldades mõõtmisandmed ja metaandmed "
     "erinevatesse api otspunktidesse: dimensioonitabelid — harva ajas muutuvad seirejaamade metaandmed "
     "ning faktitabelid — ajas pidevalt uuenevad seireandmed.\n\n"
@@ -78,7 +77,7 @@ APP_DESCRIPTION = (
     "- efektiivsemat ETL- ja analüütikaprotsessi\n"
     "- paremat skaleeritavust rakenduste ja andmeplatvormide jaoks\n\n"
     "---\n\n"
-    "# Päringud\n\n"
+    "## Päringud\n\n"
     "Päringute koostamisel on soovitatav kasutada ajavahemiku filtreerimise parameetreid `from_ts` ja `to_ts`. "
     "Kui päringu koostamisel filtreid ei määrata, tagastab API vaikimisi kuni 5 viimast mõõtmist "
     "viimasel saadaoleval ajatemplil.\n\n"
@@ -87,15 +86,15 @@ APP_DESCRIPTION = (
     "- mõõdetav element\n"
     "- ajavahemik\n\n"
     "---\n\n"
-    "# API päringu näide\n\n"
+    "## API päringu näide\n\n"
     "Python script:\n\n"
     "```python\n"
     "import requests\n\n"
-    "# Laadi seirejaamade metaandmed\n"
+    "## Laadi seirejaamade metaandmed\n"
     "stations = requests.get(\n"
     "    \"https://api.deng.ee/v1/stations/hydro\"\n"
     ").json()\n\n"
-    "# Päri viimase 3 päeva veetaseme andmed\n"
+    "## Päri viimase 3 päeva veetaseme andmed\n"
     "obs = requests.get(\n"
     "    \"https://api.deng.ee/v1/observations/hydro\",\n"
     "    params={\n"
@@ -108,7 +107,7 @@ APP_DESCRIPTION = (
     ").json()\n"
     "```\n\n"
     "---\n\n"
-    "# Litsents ja viited\n\n"
+    "## Litsents ja viited\n\n"
     "Andmed on avaldatud Creative Commonsi litsentsi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) alusel.\n\n"
     "Andmete kasutamisel tuleb viidata:\n"
     "- [Keskkonnaagentuur](https://www.keskkonnaagentur.ee)\n"
@@ -214,9 +213,6 @@ def build_openapi_spec() -> dict:
     spec["info"]["contact"] = {
         "email": "info@deng.ee",
     }
-    spec["info"]["license"] = {
-        "name": "CC BY 4.0",
-    }
 
     # Tags
     spec["tags"] = [
@@ -294,6 +290,37 @@ DOCS_HTML = """<!DOCTYPE html>
       font-family: 'Nunito', sans-serif !important;
     }
     .swagger-ui section.models { display: none; }
+
+    /* ── Inline code — subtle, no box, flows with text ── */
+    .swagger-ui .info p code,
+    .swagger-ui .info li code {
+      font-family: 'Nunito', sans-serif !important;
+      font-size: 1em !important;
+      font-weight: 600 !important;
+      color: #374151 !important;
+      background: none !important;
+      border: none !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+    }
+
+    /* ── Code block — neutral colour, normal weight ── */
+    .swagger-ui .info pre {
+      background: #f3f4f6 !important;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 6px !important;
+      padding: 1rem !important;
+    }
+
+    .swagger-ui .info pre code {
+      font-family: 'Courier New', monospace !important;
+      font-size: 0.85em !important;
+      font-weight: 400 !important;
+      color: #374151 !important;
+      background: none !important;
+      border: none !important;
+      padding: 0 !important;
+    }
   </style>
 </head>
 <body>
