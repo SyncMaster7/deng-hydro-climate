@@ -36,15 +36,18 @@ DEFAULT_LIMIT = 5  # rows returned when no filters provided
 # ---------------------------------------------------------------------------
 
 APP_DESCRIPTION = (
+    "## Ülevaade\n\n"
     "Eesti Hydro-Meteo API pakub avalikku juurdepääsu Eesti hüdroloogiliste ja meteoroloogiliste "
     "seirejaamade mõõtmisandmetele. Andmed pärinevad Keskkonnaagentuuri keskkonnaportaalist "
     "(keskkonnaandmed.envir.ee) ning hõlmavad 76 hüdromeeetria ja 25 meteoroloogia jaama üle kogu Eesti.\n\n"
+    "## Andmed\n\n"
     "Hüdroloogilised andmed sisaldavad veetaseme, veetemperatuuri ja vee äravoolu tunniseid "
     "mõõtmistulemusi alates 2025-01. Meteoroloogilised andmed sisaldavad andmeid sademete, "
     "õhutemperatuuri, tuule kiiruse ja suuna, õhurõhu, suhtelise õhuniiskuse ning päikesepaiste "
     "kestuse kohta. Kõik vaatlused on esitatud Eesti kohalikus ajas (EET/EEST). "
     "Andmed avaldatakse viivitusega — hüdroloogilised andmed on ligikaudu 46 tundi ja "
     "meteoroloogilised andmed 28 tundi reaalajast maas.\n\n"
+    "## Päringud\n\n"
     "Päringute tegemisel on soovitatav kasutada ajavahemiku määramise parameetreid `from_ts` ja `to_ts`. "
     "Kui päringu tegemisel filtreid ei ole määratud, tagastatakse vaikimisi tulemuseks viimasel "
     "saadaoleval ajatemplil kuni 5 viimast väärtust.\n\n"
@@ -52,8 +55,9 @@ APP_DESCRIPTION = (
     "Andmed mis ajast püsivad muutumatud või muutuvad väga harva, näiteks seirejaamade metaandmed — "
     "koordinaadid, valgala, kõrgus merepinnast jms — on saadaval eraldi API otspunktidest. "
     "Mõõtmisandmed on eraldatud seirejaamade metaandmetest ning sisaldavad mõõtmisandmeid. "
-    "Seeläbi vähendame andmete tarbimiseks vajalikku ressursikasutust.\n\n\n"
-    "Lihtne API kasitamise näide kasutades Pythonit:\n\n"
+    "Seeläbi vähendame andmete tarbimiseks vajalikku ressursikasutust.\n\n"
+    "## Näide\n\n"
+    "Lihtne API kasutamise näide kasutades Pythonit:\n\n"
     "```python\n"
     "import requests\n\n"
     "# Laadi seirejaamade metaandmed üks kord\n"
@@ -70,9 +74,11 @@ APP_DESCRIPTION = (
     "    }\n"
     ").json()\n"
     "```\n\n"
+    "## Litsents ja viited\n\n"
     "Andmed on avaldatud Creative Commonsi litsentsi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) "
     "alusel. Andmete kasutamisel tuleb viidata allikale: Keskkonnaagentur, "
-    "[keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee) ning käesolevale API-le (api.deng.ee)."
+    "[keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee) ning käesolevale API-le (api.deng.ee).\n\n"
+    "Allikas: [Eesti keskkonnaportaal](https://www.keskkonnaportaal.ee)"
 )
 
 CONTENT = {
@@ -172,11 +178,9 @@ def build_openapi_spec() -> dict:
     spec["info"]["termsOfService"] = "https://creativecommons.org/licenses/by/4.0/"
     spec["info"]["contact"] = {
         "email": "info@deng.ee",
-        "url":   "https://github.com/SyncMaster7/deng-hydro-climate",
     }
     spec["info"]["license"] = {
         "name": "CC BY 4.0",
-        "url":  "https://creativecommons.org/licenses/by/4.0/",
     }
 
     # Tags
@@ -302,6 +306,24 @@ DOCS_HTML = """<!DOCTYPE html>
       padding: 1px 5px;
       border-radius: 3px;
       border: none;
+    }
+
+    /* ── Soften code blocks (python example etc) ── */
+    .swagger-ui .info pre,
+    .swagger-ui .info .highlight-code {
+      background: #f3f4f6 !important;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 6px !important;
+    }
+
+    .swagger-ui .info pre code,
+    .swagger-ui .info .highlight-code code {
+      background: transparent !important;
+      color: #374151 !important;
+      font-weight: 400 !important;
+      font-size: 0.85em !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
     }
 
     /* ── Topbar — clean white ── */
