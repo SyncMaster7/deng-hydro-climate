@@ -9,6 +9,11 @@ select
     station_altitude_msl_m,
     latitude,
     longitude,
-    station_category,
+    case station_category
+        when 'coastal'      then 'rannikujaam'
+        when 'monitoring'   then 'seirejaam'
+        when 'water_level'  then 'hüdromeetriajaam'
+        else station_category
+    end as station_category,
     is_active
 from {{ source('ref', 'hydrometric_stations') }}
