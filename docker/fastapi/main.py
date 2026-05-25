@@ -36,33 +36,66 @@ DEFAULT_LIMIT = 5  # rows returned when no filters provided
 # ---------------------------------------------------------------------------
 
 APP_DESCRIPTION = (
-    "## Ülevaade\n\n"
-    "Eesti Hydro-Meteo API pakub avalikku juurdepääsu Eesti hüdroloogiliste ja meteoroloogiliste "
-    "seirejaamade mõõtmisandmetele. Andmed pärinevad Keskkonnaagentuuri keskkonnaportaalist "
-    "(keskkonnaandmed.envir.ee) ning hõlmavad 76 hüdromeeetria ja 25 meteoroloogia jaama üle kogu Eesti.\n\n"
-    "## Andmed\n\n"
-    "Hüdroloogilised andmed sisaldavad veetaseme, veetemperatuuri ja vee äravoolu tunniseid "
-    "mõõtmistulemusi alates 2025-01. Meteoroloogilised andmed sisaldavad andmeid sademete, "
-    "õhutemperatuuri, tuule kiiruse ja suuna, õhurõhu, suhtelise õhuniiskuse ning päikesepaiste "
-    "kestuse kohta. Kõik vaatlused on esitatud Eesti kohalikus ajas (EET/EEST). "
-    "Andmed avaldatakse viivitusega — hüdroloogilised andmed on ligikaudu 46 tundi ja "
-    "meteoroloogilised andmed 28 tundi reaalajast maas.\n\n"
-    "## Päringud\n\n"
-    "Päringute tegemisel on soovitatav kasutada ajavahemiku määramise parameetreid `from_ts` ja `to_ts`. "
-    "Kui päringu tegemisel filtreid ei ole määratud, tagastatakse vaikimisi tulemuseks viimasel "
-    "saadaoleval ajatemplil kuni 5 viimast väärtust.\n\n"
-    "API on üles ehitatud tähtskeemi põhimõttel mis sisaldab dimensioonide- ja faktitabelit. "
-    "Andmed mis ajast püsivad muutumatud või muutuvad väga harva, näiteks seirejaamade metaandmed — "
-    "koordinaadid, valgala, kõrgus merepinnast jms — on saadaval eraldi API otspunktidest. "
-    "Mõõtmisandmed on eraldatud seirejaamade metaandmetest ning sisaldavad mõõtmisandmeid. "
-    "Seeläbi vähendame andmete tarbimiseks vajalikku ressursikasutust.\n\n"
-    "## Näide\n\n"
-    "Lihtne API kasutamise näide kasutades Pythonit:\n\n"
+    "**OpenAPI Schema:** https://api.deng.ee/openapi.json\n\n"
+    "---\n\n"
+    "# Ülevaade\n\n"
+    "Eesti Hydro-Meteo API pakub avalikku ja struktureeritud juurdepääsu Eesti hüdroloogilistele ja "
+    "meteoroloogilistele mõõtmisandmetele. API on loodud eestkätt arendajatele ja andmeanalüüsi "
+    "projektidele, võimaldades usaldusväärset ligipääsu Keskkonnaagentuuri (`keskkonnaandmed.envir.ee`) "
+    "seireandmetele läbi kaasaegse ning ressursisäästliku liidese.\n\n"
+    "Platvorm koondab nii mõõtmisandmeid enam kui 100 seirejaamast üle Eesti, sealhulgas "
+    "hüdromeetria- ja meteoroloogiajaamadest. Andmed sobivad kasutamiseks rakendustes, teadustöös, "
+    "keskkonnaseires ning ETL-andmetorudes.\n\n"
+    "---\n\n"
+    "# Andmed\n\n"
+    "API sisaldab hüdroloogilisi ja meteoroloogilisi vaatlusandmeid alates 2025 aastast.\n\n"
+    "## Hüdroloogilised seireandmed\n\n"
+    "Sisaldavad:\n"
+    "- veetaset\n"
+    "- veetemperatuuri\n"
+    "- vee äravoolu mõõtmisi\n\n"
+    "## Meteoroloogilised seireandmed\n\n"
+    "Sisaldavad:\n"
+    "- sademete andmeid\n"
+    "- õhutemperatuuri\n"
+    "- tuule kiirust ja suunda\n"
+    "- õhurõhku\n"
+    "- suhtelist õhuniiskust\n"
+    "- päikesepaiste kestust\n\n"
+    "> Kõik ajatemplid on esitatud Eesti kohalikus ajas (EET/EEST).\n"
+    "> Andmeid uuendatakse automaatselt iga päev kell **09:00** kohaliku aja järgi.\n\n"
+    "Tulenevalt lähteandmete avaldamise protsessist avaldatakse seireandmed viivitusega:\n"
+    "- hüdroloogilised seireandmed ligikaudu 46 tundi pärast mõõtmist\n"
+    "- meteoroloogilised seireandmed ligikaudu 28 tundi pärast mõõtmist\n\n"
+    "---\n\n"
+    "# Arhitektuur\n\n"
+    "API on üles ehitatud tähtskeemi (*star schema*) põhimõttel, eraldades mõõtmisandmed ja metaandmed "
+    "erinevatesse api otspunktidesse: dimensioonitabelid — harva ajas muutuvad seirejaamade metaandmed "
+    "ning faktitabelid — ajas pidevalt uuenevad seireandmed.\n\n"
+    "Antud lahendus võimaldab:\n"
+    "- väiksemat andmemahtu päringutes\n"
+    "- kiiremat töötlemist\n"
+    "- efektiivsemat ETL- ja analüütikaprotsessi\n"
+    "- paremat skaleeritavust rakenduste ja andmeplatvormide jaoks\n\n"
+    "---\n\n"
+    "# Päringud\n\n"
+    "Päringute koostamisel on soovitatav kasutada ajavahemiku filtreerimise parameetreid `from_ts` ja `to_ts`. "
+    "Kui päringu koostamisel filtreid ei määrata, tagastab API vaikimisi kuni 5 viimast mõõtmist "
+    "viimasel saadaoleval ajatemplil.\n\n"
+    "API toetab paindlikku filtreerimist:\n"
+    "- seirejaam\n"
+    "- mõõdetav element\n"
+    "- ajavahemik\n\n"
+    "---\n\n"
+    "# API päringu näide\n\n"
+    "Python script:\n\n"
     "```python\n"
     "import requests\n\n"
-    "# Laadi seirejaamade metaandmed üks kord\n"
-    "stations = requests.get(\"https://api.deng.ee/v1/stations/hydro\").json()\n\n"
-    "# Päri viimase 3 päeva veetaseme andmed konkreetsele jaamale\n"
+    "# Laadi seirejaamade metaandmed\n"
+    "stations = requests.get(\n"
+    "    \"https://api.deng.ee/v1/stations/hydro\"\n"
+    ").json()\n\n"
+    "# Päri viimase 3 päeva veetaseme andmed\n"
     "obs = requests.get(\n"
     "    \"https://api.deng.ee/v1/observations/hydro\",\n"
     "    params={\n"
@@ -74,40 +107,42 @@ APP_DESCRIPTION = (
     "    }\n"
     ").json()\n"
     "```\n\n"
-    "## Litsents ja viited\n\n"
-    "Andmed on avaldatud Creative Commonsi litsentsi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) "
-    "alusel. Andmete kasutamisel tuleb viidata allikale: Keskkonnaagentur, "
-    "[keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee) ning käesolevale API-le (api.deng.ee).\n\n"
-    "Allikas: [Eesti keskkonnaportaal](https://www.keskkonnaportaal.ee)"
+    "---\n\n"
+    "# Litsents ja viited\n\n"
+    "Andmed on avaldatud Creative Commonsi litsentsi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) alusel.\n\n"
+    "Andmete kasutamisel tuleb viidata:\n"
+    "- [Keskkonnaagentuur](https://www.keskkonnaagentur.ee)\n"
+    "- käesolevale API-le (`api.deng.ee`)\n\n"
+    "**Allikas:** [keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee)"
 )
 
 CONTENT = {
     "tag_stations_desc":     "Hüdromeetria- ja meteoroloogiajaamade metaandmed.",
-    "tag_elements_desc":     "Mõõtmistüüpide kataloog — kõik saadaolevad elemendikoodid koos kirjelduste ja ühikutega.",
-    "tag_observations_desc": "Vaatluste aegread filtreeritud jaama, elemendi koodi ja ajavahemiku järgi.",
+    "tag_elements_desc":     "Mõõtmistüüpide kataloog — kõik saadaolevad seirenäitaja koodid koos kirjelduste ja ühikutega.",
+    "tag_observations_desc": "Vaatluste aegread filtreeritud jaama, seirenäitaja koodi ja ajavahemiku järgi.",
     "stations_hydro_list":   "Kõik hüdromeetrijaamad koos metaandmetega.",
     "stations_hydro_get":    "Hüdromeetrijaama metaandmed jaama koodi (station_code) alusel.",
     "stations_meteo_list":   "Kõik meteoroloogiajaamad koos metaandmetega.",
     "stations_meteo_get":    "Meteoroloogiajaama metaandmed jaama koodi (station_code) alusel.",
-    "elements":              "Kõik saadaolevad elemendikoodid koos kirjelduse, ühiku ja allikaga. Kasuta filtreerimiseks source=hydro või source=meteo.",
+    "elements":              "Kõik saadaolevad seirenäitaja koodid koos kirjelduse, ühiku ja allikaga. Kasuta filtreerimiseks source=hydro või source=meteo.",
     "obs_hydro": (
-        "Hüdroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
+        "Hüdroloogilised vaatlused filtreeritud jaama, seirenäitaja ja ajavahemiku järgi. "
         "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
         "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
         "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
     ),
-    "obs_hydro_latest": "Iga jaama ja elemendi koodi viimane vaatlus. Kasulik näidikulaua hetkeseisu kuvamiseks.",
+    "obs_hydro_latest": "Iga jaama ja seirenäitaja koodi viimane vaatlus. Kasulik näidikulaua hetkeseisu kuvamiseks.",
     "obs_meteo": (
-        "Meteoroloogilised vaatlused filtreeritud jaama, elemendi ja ajavahemiku järgi. "
+        "Meteoroloogilised vaatlused filtreeritud jaama, seirenäitaja ja ajavahemiku järgi. "
         "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
         "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
         "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
     ),
     "param_station_code_hydro": "Komaga eraldatud jaama koodid, nt 41061,26227",
     "param_station_code_meteo": "Komaga eraldatud jaama koodid, nt 26242,26231",
-    "param_element_code_hydro": "Komaga eraldatud elemendikoodid, nt wl_avg,wl_min",
-    "param_element_code_meteo": "Komaga eraldatud elemendikoodid, nt pr1h,ta",
-    "param_element_code_latest": "Komaga eraldatud elemendikoodid, nt wl_avg,wt_avg",
+    "param_element_code_hydro": "Komaga eraldatud seirenäitaja koodid, nt wl_avg,wl_min",
+    "param_element_code_meteo": "Komaga eraldatud seirenäitaja koodid, nt pr1h,ta",
+    "param_element_code_latest": "Komaga eraldatud seirenäitaja koodid, nt wl_avg,wt_avg",
     "param_from_ts":  "Ajavahemiku algus (ISO 8601).",
     "param_to_ts":    "Ajavahemiku lõpp (ISO 8601). Vaikimisi praegune aeg.",
     "param_limit":    "Maksimaalne tagastatavate ridade arv.",
@@ -186,14 +221,14 @@ def build_openapi_spec() -> dict:
     # Tags
     spec["tags"] = [
         {"name": "Seirejaamad",   "description": CONTENT["tag_stations_desc"]},
-        {"name": "Elemendid",   "description": CONTENT["tag_elements_desc"]},
+        {"name": "Seirenäitajad",   "description": CONTENT["tag_elements_desc"]},
         {"name": "Vaatlused", "description": CONTENT["tag_observations_desc"]},
     ]
 
     # Remap tag names on operations
     tag_map = {
         "Stations":     "Seirejaamad",
-        "Elements":     "Elemendid",
+        "Elements":     "Seirenäitajad",
         "Observations": "Vaatlused",
     }
     for path_item in spec.get("paths", {}).values():
@@ -207,7 +242,7 @@ def build_openapi_spec() -> dict:
         "/v1/stations/hydro/{station_code}": {"get": {"description": CONTENT["stations_hydro_get"],  "summary": "Kuva üks hüdromeetriajaam"}},
         "/v1/stations/meteo":                {"get": {"description": CONTENT["stations_meteo_list"], "summary": "Kuva kõik meteoroloogiajaamad"}},
         "/v1/stations/meteo/{station_code}": {"get": {"description": CONTENT["stations_meteo_get"],  "summary": "Kuva üks meteoroloogiajaam"}},
-        "/v1/elements":                      {"get": {"description": CONTENT["elements"],            "summary": "Kuva kõik mõõtmiselemendi koodid"}},
+        "/v1/elements":                      {"get": {"description": CONTENT["elements"],            "summary": "Kuva kõik seirenäitaja koodid"}},
         "/v1/observations/hydro":            {"get": {"description": CONTENT["obs_hydro"],           "summary": "Päri hüdroloogilisi vaatlusi"}},
         "/v1/observations/hydro/latest":     {"get": {"description": CONTENT["obs_hydro_latest"],    "summary": "Viimane hüdroloogiline vaatlus jaama kohta"}},
         "/v1/observations/meteo":            {"get": {"description": CONTENT["obs_meteo"],           "summary": "Päri meteoroloogilisi vaatlusi"}},
@@ -250,197 +285,15 @@ DOCS_HTML = """<!DOCTYPE html>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Eesti Hydro-Meteo API</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
   <style>
-    /* ── Base ── */
-    body {
-      margin: 0;
-      background: #f8f9fc;
-      font-family: 'Nunito', sans-serif;
-    }
-
-    /* ── Apply Nunito everywhere ── */
+    body { margin: 0; font-family: 'Nunito', sans-serif; }
     .swagger-ui,
-    .swagger-ui .info,
-    .swagger-ui .info p,
-    .swagger-ui .info li,
-    .swagger-ui .opblock-summary-description,
-    .swagger-ui .opblock-description-wrapper p,
-    .swagger-ui .opblock-description-wrapper li,
-    .swagger-ui .parameter__name,
-    .swagger-ui .parameter__type,
-    .swagger-ui table thead tr th,
-    .swagger-ui table tbody tr td,
-    .swagger-ui .response-col_status,
-    .swagger-ui .btn,
-    .swagger-ui select,
-    .swagger-ui label,
-    .swagger-ui .tab li,
-    .swagger-ui .scheme-container,
-    .swagger-ui .servers,
-    .swagger-ui .servers label {
+    .swagger-ui *:not(code):not(pre):not(.opblock-summary-path):not(textarea):not(input) {
       font-family: 'Nunito', sans-serif !important;
     }
-
-    /* ── Code / mono ── */
-    .swagger-ui .opblock-summary-path,
-    .swagger-ui .opblock-summary-path__deprecated,
-    pre, code,
-    .swagger-ui textarea,
-    .swagger-ui input[type="text"],
-    .swagger-ui .curl {
-      font-family: 'JetBrains Mono', monospace !important;
-    }
-
-    /* ── Soften inline code in descriptions ── */
-    .swagger-ui .info p code,
-    .swagger-ui .info li code,
-    .swagger-ui .opblock-description-wrapper p code,
-    .swagger-ui .opblock-description-wrapper li code {
-      font-family: 'JetBrains Mono', monospace !important;
-      font-size: 0.82em;
-      font-weight: 400;
-      background: #eef0f4;
-      color: #374151;
-      padding: 1px 5px;
-      border-radius: 3px;
-      border: none;
-    }
-
-    /* ── Soften code blocks (python example etc) ── */
-    .swagger-ui .info pre,
-    .swagger-ui .info .highlight-code {
-      background: #f3f4f6 !important;
-      border: 1px solid #e5e7eb !important;
-      border-radius: 6px !important;
-    }
-
-    .swagger-ui .info pre code,
-    .swagger-ui .info .highlight-code code {
-      background: transparent !important;
-      color: #374151 !important;
-      font-weight: 400 !important;
-      font-size: 0.85em !important;
-      padding: 0 !important;
-      border-radius: 0 !important;
-    }
-
-    /* ── Topbar — clean white ── */
-    .swagger-ui .topbar {
-      background: #ffffff;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 10px 0;
-    }
-
-    .swagger-ui .topbar .download-url-wrapper input[type=text] {
-      border-color: #e5e7eb;
-      border-radius: 6px;
-      font-family: 'JetBrains Mono', monospace !important;
-    }
-
-    .swagger-ui .topbar .download-url-wrapper .download-url-button {
-      background: #2563eb;
-      border-radius: 6px;
-      font-family: 'Nunito', sans-serif !important;
-      font-weight: 600;
-    }
-
-    /* ── Title ── */
-    .swagger-ui .info .title {
-      font-family: 'Nunito', sans-serif !important;
-      font-weight: 700;
-      font-size: 2rem;
-      color: #1e293b;
-    }
-
-    .swagger-ui .info .title small.version-stamp {
-      background: #2563eb;
-      border-radius: 4px;
-      font-family: 'Nunito', sans-serif !important;
-    }
-
-    /* ── Info links (contact, licence, ToS) ── */
-    .swagger-ui .info a {
-      color: #2563eb;
-      text-decoration: none;
-    }
-    .swagger-ui .info a:hover {
-      text-decoration: underline;
-    }
-
-    /* ── Tag headings ── */
-    .swagger-ui .opblock-tag {
-      font-family: 'Nunito', sans-serif !important;
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: #1e293b;
-      border-bottom: 1px solid #e5e7eb;
-    }
-
-    /* ── Operation blocks ── */
-    .swagger-ui .opblock {
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      box-shadow: none;
-      margin-bottom: 8px;
-    }
-
-    .swagger-ui .opblock.opblock-get {
-      background: #f0f7ff;
-      border-color: #bfdbfe;
-    }
-
-    .swagger-ui .opblock.opblock-get .opblock-summary {
-      border-color: #bfdbfe;
-    }
-
-    /* ── GET badge ── */
-    .swagger-ui .opblock-summary-method {
-      border-radius: 5px;
-      font-family: 'Nunito', sans-serif !important;
-      font-weight: 700;
-      font-size: 0.75rem;
-      letter-spacing: 0.05em;
-      min-width: 60px;
-    }
-
-    .swagger-ui .opblock.opblock-get .opblock-summary-method {
-      background: #2563eb;
-    }
-
-    /* ── Buttons ── */
-    .swagger-ui .btn {
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-
-    .swagger-ui .btn.execute {
-      background: #2563eb;
-      border-color: #2563eb;
-    }
-
-    .swagger-ui .btn.execute:hover {
-      background: #1d4ed8;
-      border-color: #1d4ed8;
-    }
-
-    .swagger-ui .btn.try-out__btn {
-      border-color: #2563eb;
-      color: #2563eb;
-    }
-
-    /* ── Wrapper ── */
-    .swagger-ui .wrapper {
-      max-width: 1200px;
-      padding: 0 24px;
-    }
-
-    /* ── Models section — hide ── */
-    .swagger-ui section.models {
-      display: none;
-    }
+    .swagger-ui section.models { display: none; }
   </style>
 </head>
 <body>
@@ -550,7 +403,7 @@ async def get_meteo_station(request: Request, station_code: str):
 
 @app.get(
     "/v1/elements",
-    summary="Kuva kõik mõõtmiselemendi koodid",
+    summary="Kuva kõik seirenäitaja koodid",
     tags=["Elements"],
 )
 @limiter.limit(RATE_LIMIT)
@@ -583,7 +436,7 @@ async def list_element_codes(
 async def get_hydro_observations(
     request: Request,
     station_code: Optional[str] = Query(None, description="Komaga eraldatud jaama koodid, nt 41061,26227"),
-    element_code: Optional[str] = Query(None, description="Komaga eraldatud elemendikoodid, nt wl_avg,wl_min"),
+    element_code: Optional[str] = Query(None, description="Komaga eraldatud seirenäitaja koodid, nt wl_avg,wl_min"),
     from_ts: Optional[datetime] = Query(None, description="Ajavahemiku algus (ISO 8601)."),
     to_ts: Optional[datetime] = Query(None, description="Ajavahemiku lõpp (ISO 8601). Vaikimisi praegune aeg."),
     limit: int = Query(10000, ge=1, le=50000, description="Maksimaalne tagastatavate ridade arv."),
@@ -647,7 +500,7 @@ async def get_hydro_observations(
 @limiter.limit(RATE_LIMIT)
 async def get_hydro_latest(
     request: Request,
-    element_code: Optional[str] = Query(None, description="Komaga eraldatud elemendikoodid, nt wl_avg,wt_avg"),
+    element_code: Optional[str] = Query(None, description="Komaga eraldatud seirenäitaja koodid, nt wl_avg,wt_avg"),
 ):
     element_codes = [e.strip().lower() for e in element_code.split(",")] if element_code else None
 
@@ -682,7 +535,7 @@ async def get_hydro_latest(
 async def get_meteo_observations(
     request: Request,
     station_code: Optional[str] = Query(None, description="Komaga eraldatud jaama koodid, nt 26242,26231"),
-    element_code: Optional[str] = Query(None, description="Komaga eraldatud elemendikoodid, nt pr1h,ta"),
+    element_code: Optional[str] = Query(None, description="Komaga eraldatud seirenäitaja koodid, nt pr1h,ta"),
     from_ts: Optional[datetime] = Query(None, description="Ajavahemiku algus (ISO 8601)."),
     to_ts: Optional[datetime] = Query(None, description="Ajavahemiku lõpp (ISO 8601). Vaikimisi praegune aeg."),
     limit: int = Query(10000, ge=1, le=50000, description="Maksimaalne tagastatavate ridade arv."),
