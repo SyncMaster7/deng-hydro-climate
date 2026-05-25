@@ -1,7 +1,7 @@
 """
-deng-hydro-climate — Public API
+Estonian Hydro-Meteo API — Public API
 FastAPI + asyncpg + slowapi rate limiter
-Stoplight Elements at /docs
+Swagger UI at /docs
 """
 
 import json
@@ -40,7 +40,7 @@ CONTENT = {
         "Public API for Estonian hydrological and meteorological observations.\n\n"
         "**Fact/dim design** — fetch station metadata once, query observations by "
         "station and element code. No authentication required. "
-        "Rate limited to 60 requests/minute per IP.\n\n"
+        "Rate limited to 60 requests/minute.\n\n"
         "**Endpoints overview:**\n"
         "- `/v1/stations/*` — dimension endpoints, fetch once and cache\n"
         "- `/v1/elements` — measurement type catalogue\n"
@@ -101,12 +101,13 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="deng-hydro-climate API",
+    title="Estonian Hydro-Meteo API",
     description=CONTENT["app_description"],
     version="1.0.0",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
+    openapi_url=None,
 )
 
 app.state.limiter = limiter
@@ -120,26 +121,24 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# OpenAPI spec — patched with descriptions, schemas removed
+# OpenAPI spec — patched with descriptions, error schemas removed
 # ---------------------------------------------------------------------------
 
 def build_openapi_spec() -> dict:
     """Return a patched OpenAPI spec — descriptions injected, error schemas removed."""
-
+    app.openapi_schema = None  # clear FastAPI internal cache
     base = app.openapi()
     spec = json.loads(json.dumps(base))
 
-    # Patch app description
+    spec["info"]["title"]       = "Estonian Hydro-Meteo API"
     spec["info"]["description"] = CONTENT["app_description"]
 
-    # Patch tags with descriptions
     spec["tags"] = [
         {"name": "Stations",     "description": CONTENT["tag_stations_desc"]},
         {"name": "Elements",     "description": CONTENT["tag_elements_desc"]},
         {"name": "Observations", "description": CONTENT["tag_observations_desc"]},
     ]
 
-    # Patch endpoint descriptions
     patches = {
         "/v1/stations/hydro":                {"get": {"description": CONTENT["stations_hydro_list"]}},
         "/v1/stations/hydro/{station_code}": {"get": {"description": CONTENT["stations_hydro_get"]}},
@@ -157,13 +156,15 @@ def build_openapi_spec() -> dict:
                 if method in spec["paths"][path]:
                     spec["paths"][path][method].update(patch)
 
-    # Remove FastAPI error schemas — not useful for consumers
+    # Remove error schemas
     schemas_to_remove = {"HTTPValidationError", "ValidationError"}
     if "components" in spec and "schemas" in spec["components"]:
         for s in schemas_to_remove:
             spec["components"]["schemas"].pop(s, None)
+    if "components" in spec and not spec["components"].get("schemas"):
+        spec.pop("components", None)
 
-    # Remove 422 responses from all operations — they reference removed schemas
+    # Remove 422 responses
     for path_item in spec.get("paths", {}).values():
         for op in path_item.values():
             if isinstance(op, dict) and "responses" in op:
@@ -177,101 +178,179 @@ async def openapi():
     return JSONResponse(build_openapi_spec())
 
 # ---------------------------------------------------------------------------
-# ReDoc CE — /docs
+# Swagger UI — /docs
 # ---------------------------------------------------------------------------
 
 DOCS_HTML = """<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Estonian Hydro-Meteo API</title>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <title>Estonian Hydro-Meteo API</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
   <style>
-    body {{
+    /* ── Base ── */
+    body {
       margin: 0;
-      padding: 0;
-      background: #fafafa;
-    }}
+      background: #f8f9fc;
+      font-family: 'Nunito', sans-serif;
+    }
+
+    /* ── Apply Nunito everywhere ── */
+    .swagger-ui,
+    .swagger-ui .info,
+    .swagger-ui .info p,
+    .swagger-ui .info li,
+    .swagger-ui .opblock-summary-description,
+    .swagger-ui .opblock-description-wrapper p,
+    .swagger-ui .opblock-description-wrapper li,
+    .swagger-ui .parameter__name,
+    .swagger-ui .parameter__type,
+    .swagger-ui table thead tr th,
+    .swagger-ui table tbody tr td,
+    .swagger-ui .response-col_status,
+    .swagger-ui .btn,
+    .swagger-ui select,
+    .swagger-ui label,
+    .swagger-ui .tab li,
+    .swagger-ui .scheme-container,
+    .swagger-ui .servers,
+    .swagger-ui .servers label {
+      font-family: 'Nunito', sans-serif !important;
+    }
+
+    /* ── Code / mono ── */
+    .swagger-ui .opblock-summary-path,
+    .swagger-ui .opblock-summary-path__deprecated,
+    pre, code,
+    .swagger-ui textarea,
+    .swagger-ui input[type="text"],
+    .swagger-ui .curl {
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    /* ── Topbar — clean white ── */
+    .swagger-ui .topbar {
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 10px 0;
+    }
+
+    .swagger-ui .topbar .download-url-wrapper input[type=text] {
+      border-color: #e5e7eb;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    .swagger-ui .topbar .download-url-wrapper .download-url-button {
+      background: #2563eb;
+      border-radius: 6px;
+      font-family: 'Nunito', sans-serif !important;
+      font-weight: 600;
+    }
+
+    /* ── Title ── */
+    .swagger-ui .info .title {
+      font-family: 'Nunito', sans-serif !important;
+      font-weight: 700;
+      font-size: 2rem;
+      color: #1e293b;
+    }
+
+    .swagger-ui .info .title small.version-stamp {
+      background: #2563eb;
+      border-radius: 4px;
+      font-family: 'Nunito', sans-serif !important;
+    }
+
+    /* ── Tag headings ── */
+    .swagger-ui .opblock-tag {
+      font-family: 'Nunito', sans-serif !important;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #1e293b;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    /* ── Operation blocks ── */
+    .swagger-ui .opblock {
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      box-shadow: none;
+      margin-bottom: 8px;
+    }
+
+    .swagger-ui .opblock.opblock-get {
+      background: #f0f7ff;
+      border-color: #bfdbfe;
+    }
+
+    .swagger-ui .opblock.opblock-get .opblock-summary {
+      border-color: #bfdbfe;
+    }
+
+    /* ── GET badge ── */
+    .swagger-ui .opblock-summary-method {
+      border-radius: 5px;
+      font-family: 'Nunito', sans-serif !important;
+      font-weight: 700;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      min-width: 60px;
+    }
+
+    .swagger-ui .opblock.opblock-get .opblock-summary-method {
+      background: #2563eb;
+    }
+
+    /* ── Buttons ── */
+    .swagger-ui .btn {
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .swagger-ui .btn.execute {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+
+    .swagger-ui .btn.execute:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+    }
+
+    .swagger-ui .btn.try-out__btn {
+      border-color: #2563eb;
+      color: #2563eb;
+    }
+
+    /* ── Wrapper ── */
+    .swagger-ui .wrapper {
+      max-width: 1200px;
+      padding: 0 24px;
+    }
+
+    /* ── Models section — hide it ── */
+    .swagger-ui section.models {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <redoc
-    spec-url="/openapi.json"
-    hide-download-buttons="true"
-    native-scrollbars="true"
-    theme='{{
-      "spacing": {{
-        "unit": 5,
-        "sectionHorizontal": 32,
-        "sectionVertical": 32
-      }},
-      "colors": {{
-        "primary": {{
-          "main": "#2563eb"
-        }},
-        "tonalOffset": 0.2
-      }},
-      "typography": {{
-        "fontSize": "15px",
-        "lineHeight": "1.6em",
-        "fontWeightRegular": "400",
-        "fontWeightBold": "600",
-        "fontWeightLight": "300",
-        "fontFamily": "DM Sans, sans-serif",
-        "smoothing": "antialiased",
-        "optimizeSpeed": true,
-        "headings": {{
-          "fontFamily": "DM Sans, sans-serif",
-          "fontWeight": "700",
-          "lineHeight": "1.4em"
-        }},
-        "code": {{
-          "fontSize": "13px",
-          "fontFamily": "DM Mono, monospace",
-          "color": "#2563eb",
-          "backgroundColor": "#f0f2f5",
-          "wrap": true
-        }},
-        "links": {{
-          "color": "#2563eb",
-          "hover": "#1d4ed8",
-          "textDecoration": "none",
-          "hoverTextDecoration": "underline"
-        }}
-      }},
-      "sidebar": {{
-        "width": "220px",
-        "backgroundColor": "#fafafa",
-        "textColor": "#374151",
-        "activeTextColor": "#2563eb",
-        "groupItems": {{
-          "textTransform": "uppercase",
-          "activeTextColor": "#2563eb",
-          "activeBackgroundColor": "#fafafa"
-        }},
-        "level1Items": {{
-          "textTransform": "none",
-          "activeTextColor": "#2563eb",
-          "activeBackgroundColor": "#eff6ff"
-        }},
-        "arrow": {{
-          "size": "1.2em",
-          "color": "#9ca3af"
-        }}
-      }},
-      "rightPanel": {{
-        "backgroundColor": "#f8fafc",
-        "width": "32%",
-        "textColor": "#1e293b"
-      }},
-      "fab": {{
-        "backgroundColor": "#2563eb",
-        "color": "#ffffff"
-      }}
-    }}'
-  ></redoc>
-  <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({
+      url: "/openapi.json",
+      dom_id: "#swagger-ui",
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+      layout: "BaseLayout",
+      deepLinking: true,
+      defaultModelsExpandDepth: -1,
+    });
+  </script>
 </body>
 </html>"""
 
