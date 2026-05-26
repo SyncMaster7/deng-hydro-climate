@@ -6,6 +6,7 @@ Swagger UI at /docs
 
 import json
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -195,6 +196,45 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Request logging middleware — writes to monitoring.request_log after response
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    start = time.monotonic()
+    response = await call_next(request)
+    elapsed_ms = round((time.monotonic() - start) * 1000, 2)
+
+    # Skip health check and internal routes
+    if request.url.path in ("/health", "/openapi.json", "/docs"):
+        return response
+
+    try:
+        query_params = dict(request.query_params) or None
+        client_ip = (
+            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or request.client.host
+        )
+        async with request.app.state.pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO monitoring.request_log
+                    (method, endpoint, query_params, status_code, response_ms, client_ip)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                """,
+                request.method,
+                request.url.path,
+                json.dumps(query_params) if query_params else None,
+                response.status_code,
+                elapsed_ms,
+                client_ip,
+            )
+    except Exception:
+        pass  # Never let logging failure affect the response
+
+    return response
 
 # ---------------------------------------------------------------------------
 # OpenAPI spec — patched with descriptions, contact, licence, schemas removed
