@@ -10,6 +10,12 @@ sources:
           f_hydroseire API-st. Üks rida ühe jaama, ajatempli ja mõõtmistüübi kohta
           (pikk formaat). Andmed katavad 76 hüdomeetrijaama ning sisaldavad veetaset,
           veetemperatuuri ja äravoolu tunnise granulaarsusega.
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns:
+                - jaam_kood
+                - timeline_ts_utc
+                - aegrida_nimi
         columns:
           - name: id
             description: Asendusprimaarovõti, automaatselt suurenev.
@@ -17,6 +23,8 @@ sources:
             description: >
               Hüdromeetrijaama kood (täisarv). Keskkonnaagentuuri määratud loomulik võti.
               Vastab väljale station_code tabelis ref.hydrometric_stations.
+            tests:
+              - not_null
           - name: jaam_nimi
             description: Jaama lühinimi eesti keeles, nii nagu allikas API-s on esitatud.
           - name: jaam_taisnimi
@@ -40,17 +48,34 @@ sources:
               Vaatluse ajatempel UTC-s (TIMESTAMPTZ). Kasutatakse peamise ajalise
               võtmena koos jaam_kood ja aegrida_nimi väljadega. Ärge kasutage seda
               välja kuupäevapõhiseks filtreerimiseks — kasutage timeline_ts_local.
+            tests:
+              - not_null
           - name: timeline_ts_local
             description: >
               Vaatluse ajatempel Eesti kohalikus ajas (EET/EEST, UTC+2/UTC+3).
               Kasutage seda välja kuupäevapõhiseks filtreerimiseks, et vältida
               iga kohaliku päeva esimese 3 tunni kaotamist suveajal (EEST, UTC+3).
+            tests:
+              - not_null
           - name: aegrida_nimi
             description: >
               Mõõtmistüübi identifikaator (aegrea nimi). Määrab, mida vaartus tähendab.
               Teadaolevad väärtused: "WL avg", "WL min", "WL max" (veetase cm-tes),
               "WT avg", "WT min", "WT max" (veetemperatuur °C-tes),
               "Äravool avg", "Äravool min", "Äravool max" (äravool m³/s-tes).
+            tests:
+              - not_null
+              - accepted_values:
+                  values:
+                    - "WL avg"
+                    - "WL min"
+                    - "WL max"
+                    - "WT avg"
+                    - "WT min"
+                    - "WT max"
+                    - "Äravool avg"
+                    - "Äravool min"
+                    - "Äravool max"
           - name: vaartus
             description: >
               Mõõdetud väärtus. Ühik ja tähendus sõltuvad väljast aegrida_nimi.
@@ -59,6 +84,8 @@ sources:
               tabelis silver.hydro.
           - name: loaded_at
             description: Ajatempel, millal rida lisati bronze.hydro tabelisse Airflow ingest_hydro ülesande poolt.
+            tests:
+              - not_null
 
       - name: meteo
         description: >
@@ -67,6 +94,15 @@ sources:
           elemendi kohta (pikk formaat). Andmed katavad 25 meteoroloogiajaama tunnise
           granulaarsusega. Avaldatakse igapäevase pakettina ligikaudu kell 05:01 EET
           eelmise päeva kohta.
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns:
+                - jaam_kood
+                - aasta
+                - kuu
+                - paev
+                - tund
+                - element_kood
         columns:
           - name: id
             description: Asendusprimaarovõti, automaatselt suurenev.
@@ -74,19 +110,29 @@ sources:
             description: >
               Meteoroloogiajaama kood (tekst). Keskkonnaagentuuri määratud loomulik võti.
               Vastab väljale station_code tabelis ref.meteorological_stations.
+            tests:
+              - not_null
           - name: jaam_nimi
             description: Jaama nimi eesti keeles, nii nagu allikas API-s on esitatud.
           - name: aasta
             description: Vaatluse aasta (täisarv). Esindab Eesti kohalikku aega.
+            tests:
+              - not_null
           - name: kuu
             description: Vaatluse kuu (täisarv, 1–12). Esindab Eesti kohalikku aega.
+            tests:
+              - not_null
           - name: paev
             description: Vaatluse kuupäev (täisarv, 1–31). Esindab Eesti kohalikku aega.
+            tests:
+              - not_null
           - name: tund
             description: >
               Vaatluse tund (täisarv, 0–23). Esindab Eesti kohalikku aega (EET/EEST).
               Kombineeritakse väljaadega aasta, kuu ja paev, et koostada observation_ts
               tabelis silver.meteo, kasutades make_timestamptz koos ajavööndiga Europe/Tallinn.
+            tests:
+              - not_null
           - name: vaartus
             description: >
               Mõõdetud väärtus. Ühik ja tähendus sõltuvad väljast element_kood.
@@ -100,6 +146,20 @@ sources:
               PA0 (õhurõhk jaama tasemel, hPa), WS10M (tuule kiirus 10m kõrgusel, m/s),
               WSX1H (max tuuleiil, m/s), WD10M (tuule suund 10m kõrgusel, kraadides),
               SDUR1H (päikese paistmise kestus, minutites).
+            tests:
+              - not_null
+              - accepted_values:
+                  values:
+                    - "PR1H"
+                    - "TA"
+                    - "TAN1H"
+                    - "TAX1H"
+                    - "RH"
+                    - "PA0"
+                    - "WS10M"
+                    - "WSX1H"
+                    - "WD10M"
+                    - "SDUR1H"
           - name: element_nimi_eng
             description: Meteoroloogilise elemendi inimloetav nimi inglise keeles, nii nagu allikas API-s on esitatud.
           - name: element_yhik_eng
@@ -111,6 +171,8 @@ sources:
               (~05:01 EET). See ei ole vaatluse ajatempel.
           - name: loaded_at
             description: Ajatempel, millal rida lisati bronze.meteo tabelisse Airflow ingest_meteo ülesande poolt.
+            tests:
+              - not_null
 
       - name: etl_log
         description: >
