@@ -207,8 +207,10 @@ async def log_request(request: Request, call_next):
     response = await call_next(request)
     elapsed_ms = round((time.monotonic() - start) * 1000, 2)
 
-    # Skip health check and internal routes
-    if request.url.path in ("/health", "/openapi.json", "/docs"):
+    # Skip health check, internal routes, and browser asset requests
+    skip = {"/health", "/openapi.json", "/docs", "/favicon.ico",
+            "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"}
+    if request.url.path in skip:
         return response
 
     try:
@@ -360,6 +362,15 @@ DOCS_HTML = """<!DOCTYPE html>
       background: none !important;
       border: none !important;
       padding: 0 !important;
+    }
+
+    /* ── Version / OAS badges — dark text so they're readable ── */
+    .swagger-ui .info .version,
+    .swagger-ui .info .version-stamp {
+      color: #374151 !important;
+    }
+    .swagger-ui .info hgroup.main a span {
+      color: #374151 !important;
     }
   </style>
 </head>
