@@ -1,8 +1,8 @@
 # DataHub ingestion — dbt
 # Source: dbt project artifacts (manifest.json, catalog.json, run_results.json)
 # Ingests: model lineage, column descriptions, test results
-# UI ingestion source name: dbt — hydro_climate
-# Schedule: 30 7 1 * * (1st of month, 07:30 UTC)
+# UI ingestion source name: [DENG] - Lineage
+# Schedule: 0 1 1 * * (1st of month, 01:00 UTC)
 #
 # NOTE: Regenerate artifacts before re-running when dbt structure changes:
 #   docker exec -it deng-dbt dbt docs generate --project-dir /dbt --profiles-dir /dbt --log-path /tmp/dbt_logs --target-path /tmp/dbt_target
@@ -14,17 +14,28 @@
 source:
   type: dbt
   config:
+    # Artifacts — regenerate with dbt docs generate before re-running if structure changed
     manifest_path: /datahub/artifacts/manifest.json
     catalog_path: /datahub/artifacts/catalog.json
     run_results_paths:
       - /datahub/artifacts/run_results.json
+    # Target platform — must match PostgreSQL source exactly for lineage stitching
     target_platform: postgres
-    target_platform_instance: deng-analytics-db
+    # Override existing metadata with dbt descriptions
     write_semantics: OVERRIDE
     env: PROD
+    # Stateful ingestion — tracks deleted models
     stateful_ingestion:
       enabled: true
       fail_safe_threshold: 100
+# Transformers — applied after ingestion
+transformers:
+  # Apply project tag and platform tag to all dbt models
+  - type: simple_add_dataset_tags
+    config:
+      tag_urns:
+        - "urn:li:tag:deng"
+        - "urn:li:tag:dbt"
 sink:
   type: datahub-rest
   config:
