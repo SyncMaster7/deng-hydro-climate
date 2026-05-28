@@ -10,7 +10,6 @@ Always run in this order — each recipe builds on the previous:
 |---|---|---|
 | 1 | `postgres_recipe.yml` | Tables, columns, schemas (bronze, silver, gold, ref) |
 | 2 | `dbt_recipe.yml` | Model lineage, column descriptions, test results |
-| 3 | `airflow_recipe.yml` | DAG metadata and pipeline lineage |
 | 4 | `superset_recipe.yml` | Dashboard and chart lineage back to gold tables |
 
 ## How to run

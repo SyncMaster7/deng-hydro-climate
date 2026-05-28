@@ -1,18 +1,22 @@
 # DataHub ingestion — PostgreSQL (analytics DB)
-# Source: deng-analytics-db (hydro_climate_db)
+# Source: analytics-db (hydro_climate_db)
 # Ingests: bronze, silver, gold, ref, api, monitoring, snapshots schemas
-# UI ingestion source name: PostgreSQL — hydro_climate_db
-# Schedule: 0 7 1 * * (1st of month, 07:00 UTC)
+# UI ingestion source name: [DENG] - Database
+# Schedule: 0 0 1 * * (1st of month, 00:00 UTC)
 
 source:
   type: postgres
   config:
+    # Coordinates
     host_port: analytics-db:5432
     database: hydro_climate_db
+    # Credentials
     username: "${ANALYTICS_DB_USER}"
     password: "${ANALYTICS_DB_PASSWORD}"
+    # Options
     include_tables: true
     include_views: true
+    # Schema filter — explicit list, excludes duckdb/public/information_schema
     schema_pattern:
       allow:
         - "bronze"
@@ -22,6 +26,7 @@ source:
         - "api"
         - "monitoring"
         - "snapshots"
+    # Profiling — full column-level on all schemas
     profiling:
       enabled: true
       profile_table_level_only: false
@@ -31,9 +36,30 @@ source:
       include_field_mean_value: true
       include_field_sample_values: true
       max_number_of_fields_to_profile: 50
+    # Stateful ingestion — tracks deleted entities
     stateful_ingestion:
       enabled: true
       fail_safe_threshold: 100
+# Transformers — applied after ingestion
+transformers:
+  # Apply project tag and platform tag to all datasets
+  - type: simple_add_dataset_tags
+    config:
+      tag_urns:
+        - "urn:li:tag:deng"
+        - "urn:li:tag:postgresql"
+  # Apply schema-specific tags based on URN pattern
+  - type: pattern_add_dataset_tags
+    config:
+      tag_pattern:
+        rules:
+          ".*\\.bronze\\..*": ["urn:li:tag:bronze"]
+          ".*\\.silver\\..*": ["urn:li:tag:silver"]
+          ".*\\.gold\\..*": ["urn:li:tag:gold"]
+          ".*\\.ref\\..*": ["urn:li:tag:ref"]
+          ".*\\.api\\..*": ["urn:li:tag:api"]
+          ".*\\.monitoring\\..*": ["urn:li:tag:monitoring"]
+          ".*\\.snapshots\\..*": ["urn:li:tag:snapshots"]
 sink:
   type: datahub-rest
   config:

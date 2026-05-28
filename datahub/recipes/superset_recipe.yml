@@ -1,24 +1,40 @@
 # DataHub ingestion — Apache Superset
 # Source: deng-superset (internal Docker hostname)
-# Ingests: dashboards, charts, column-level lineage back to gold.hydro_meteo
-# UI ingestion source name: Superset — deng
-# Schedule: manual only (run after dashboard changes)
+# Ingests: dashboards, charts, datasets, lineage back to gold.hydro_meteo
+# UI ingestion source name: [DENG] - Dashboards
+# Schedule: 0 2 1 * * (1st of month, 02:00 UTC)
 
 source:
   type: superset
   config:
+    # Coordinates
     connect_uri: http://superset:8088
+    # Display URI used in DataHub links — public domain
+    display_uri: https://superset.deng.ee
+    # Credentials
     username: "${SUPERSET_ADMIN_USER}"
     password: "${SUPERSET_ADMIN_PASSWORD}"
     provider: db
-    display_uri: https://superset.deng.ee
-    ingest_chart_column_level_lineage: true
+    # Ingest charts, dashboards and datasets
+    ingest_charts: true
+    ingest_dashboards: true
+    ingest_datasets: true
+    # Maps Superset DB display name to analytics DB name
     database_alias:
       deng-hydro-meteo: hydro_climate_db
     timeout: 30
+    # Stateful ingestion — tracks deleted charts/dashboards
     stateful_ingestion:
       enabled: true
       fail_safe_threshold: 100
+# Transformers — applied after ingestion
+transformers:
+  # Apply project tag and platform tag to all Superset assets
+  - type: simple_add_dataset_tags
+    config:
+      tag_urns:
+        - "urn:li:tag:deng"
+        - "urn:li:tag:superset"
 sink:
   type: datahub-rest
   config:
