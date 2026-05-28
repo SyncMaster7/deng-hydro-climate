@@ -1,22 +1,25 @@
 # DataHub ingestion — Apache Superset
 # Source: deng-superset (internal Docker hostname)
-# Ingests: dashboards, charts, dataset lineage back to gold.hydro_meteo
-# Run: docker compose exec datahub-actions datahub ingest -c /datahub/recipes/superset_recipe.yml
-
-pipeline_name: deng_superset
+# Ingests: dashboards, charts, column-level lineage back to gold.hydro_meteo
+# UI ingestion source name: Superset — deng
+# Schedule: manual only (run after dashboard changes)
 
 source:
   type: superset
   config:
-    connect_uri: "http://superset:8088"
+    connect_uri: http://superset:8088
     username: "${SUPERSET_ADMIN_USER}"
     password: "${SUPERSET_ADMIN_PASSWORD}"
-    # provider: db — default local DB auth (not LDAP/OAuth)
-    provider: "db"
+    provider: db
+    display_uri: https://superset.deng.ee
+    ingest_chart_column_level_lineage: true
+    database_alias:
+      deng-hydro-meteo: hydro_climate_db
+    timeout: 30
     stateful_ingestion:
       enabled: true
-
+      fail_safe_threshold: 100
 sink:
   type: datahub-rest
   config:
-    server: "http://datahub-gms:8080"
+    server: http://datahub-gms:8080
