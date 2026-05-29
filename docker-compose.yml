@@ -59,9 +59,9 @@ volumes:
   datahub-opensearch:
   datahub-broker:
   # CKAN named volumes — persist CKAN internal state across restarts
-  ckan-db:
-  ckan-solr:
-  ckan-storage:
+  ckan-db-data:
+  ckan-solr-data:
+  ckan-storage-data:
 
 services:
 
@@ -648,7 +648,7 @@ services:
     ports:
       - "5435:5432"
     volumes:
-      - ckan-db:/var/lib/postgresql/data
+      - ckan-db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ckan -d ckan"]
       interval: 10s
@@ -664,7 +664,7 @@ services:
     container_name: deng-ckan-solr
     restart: unless-stopped
     volumes:
-      - ckan-solr:/var/solr
+      - ckan-solr-data:/var/solr
     healthcheck:
       test: ["CMD-SHELL", "curl -sS --fail http://localhost:8983/solr/ckan/admin/ping"]
       interval: 15s
@@ -717,105 +717,7 @@ services:
       CKAN_SECRET_KEY: ${CKAN_SECRET_KEY}
       TZ: "Europe/Tallinn"
     volumes:
-      - ckan-storage:/var/lib/ckan
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sS --fail http://localhost:5000"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  # ===========================================================================
-  # CKAN — open data catalogue
-  # UI: http://192.168.1.93:5000 — public via https://ckan.deng.ee
-  # Admin credentials via .env — CKAN_ADMIN_USER / CKAN_ADMIN_PASSWORD
-  # ===========================================================================
-
-  # ---------------------------------------------------------------------------
-  # CKAN database — dedicated PostgreSQL instance for CKAN internal state
-  # ---------------------------------------------------------------------------
-  ckan-db:
-    image: postgres:16
-    container_name: deng-ckan-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ckan
-      POSTGRES_PASSWORD: ${CKAN_DB_PASSWORD}
-      POSTGRES_DB: ckan
-      POSTGRES_HOST_AUTH_METHOD: md5
-    ports:
-      - "5435:5432"
-    volumes:
-      - ckan-db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ckan -d ckan"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ---------------------------------------------------------------------------
-  # CKAN Solr — search index (pre-configured schema for CKAN 2.11)
-  # Internal only — not exposed externally
-  # ---------------------------------------------------------------------------
-  ckan-solr:
-    image: ckan/ckan-solr:2.11-solr9
-    container_name: deng-ckan-solr
-    restart: unless-stopped
-    volumes:
-      - ckan-solr:/var/solr
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sS --fail http://localhost:8983/solr/ckan/admin/ping"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-  # ---------------------------------------------------------------------------
-  # CKAN Redis — job queue and caching
-  # Internal only — not exposed externally
-  # ---------------------------------------------------------------------------
-  ckan-redis:
-    image: redis:7-alpine
-    container_name: deng-ckan-redis
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ---------------------------------------------------------------------------
-  # CKAN — open data catalogue application
-  # Exposed on 5000, reverse-proxied via Caddy at ckan.deng.ee
-  # ---------------------------------------------------------------------------
-  ckan:
-    image: ckan/ckan-base:2.11.4
-    container_name: deng-ckan
-    restart: unless-stopped
-    depends_on:
-      ckan-db:
-        condition: service_healthy
-      ckan-solr:
-        condition: service_healthy
-      ckan-redis:
-        condition: service_healthy
-    ports:
-      - "5000:5000"
-    environment:
-      CKAN_SQLALCHEMY_URL: postgresql://ckan:${CKAN_DB_PASSWORD}@ckan-db/ckan
-      CKAN_DATASTORE_WRITE_URL: postgresql://ckan:${CKAN_DB_PASSWORD}@ckan-db/ckan
-      CKAN_SOLR_URL: http://ckan-solr:8983/solr/ckan
-      CKAN_REDIS_URL: redis://ckan-redis:6379/1
-      CKAN_SITE_URL: https://ckan.deng.ee
-      CKAN_SITE_TITLE: "DENG Hydro-Climate Open Data"
-      CKAN__AUTH__CREATE_USER_VIA_WEB: "false"
-      CKAN_SYSADMIN_NAME: ${CKAN_ADMIN_USER}
-      CKAN_SYSADMIN_PASSWORD: ${CKAN_ADMIN_PASSWORD}
-      CKAN_SYSADMIN_EMAIL: ${CKAN_ADMIN_EMAIL}
-      CKAN_SECRET_KEY: ${CKAN_SECRET_KEY}
-      TZ: "Europe/Tallinn"
-    volumes:
-      - ckan-storage:/var/lib/ckan
+      - ckan-storage-data:/var/lib/ckan
     healthcheck:
       test: ["CMD-SHELL", "curl -sS --fail http://localhost:5000"]
       interval: 30s
