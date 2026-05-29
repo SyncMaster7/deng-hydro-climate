@@ -1,8 +1,8 @@
 # Estonian Hydrological Monitoring Pipeline
 
-A production-like data engineering pipeline for monitoring Estonian river and climate conditions. The system ingests hourly hydrological and meteorological observations from the Estonian Environment Agency, transforms them through a bronze → silver → gold → api dbt architecture, and exposes the data via a public REST API and internal dashboards.
+A production-like data engineering pipeline for analyzing how environmental factors like air temperature, percipitation etc affect water level fluctuations at monitoring stations, and which factors have the strongest impact on water level changes. The system ingests hourly hydrological and meteorological observations from the Estonian Environment Agency, transforms them through a medallion architecture, and exposes the data via a public Tableau dashboard and public REST API.
 
-Built on a self-hosted Dell PowerEdge T640 server running Docker on Ubuntu 24.04. Data is sourced from the Estonian Environment Agency ([Keskkonnaagentuur](https://www.keskkonnaportaal.ee)) via the open environmental data API at [keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee).
+Built on a self-hosted Dell PowerEdge T640 server running Docker on Ubuntu 24.04. Data is sourced from the [Estonian Environment Agency](https://keskkonnaagentuur.ee/en) via the open environmental data API at [keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee).
 
 ### Synopsis
 
@@ -10,15 +10,14 @@ deng-hydro-climate is a full-stack data engineering project that automates the d
 
 ### Motivation
 
-This project was built as a hands-on training exercise in data engineering, with the goal of applying production patterns — orchestration, data quality testing, metadata cataloguing, and public API delivery — to a real-world environmental dataset. The data source is the Estonian Environment Agency's open API; the business questions driving the analysis are about the relationship between precipitation, temperature, and river water levels across Estonian catchments.
+This project was built as a hands-on training exercise in data engineering, with the goal of applying production patterns — orchestration, data quality testing, metadata cataloguing, and public API delivery — to a real-world environmental dataset. The data source is the Estonian Environment Agency's open API. The business questions driving the analysis are about the relationship between precipitation, temperature, and river water levels across Estonian catchments.
 
 ---
 
 ## Business Questions
 
-- How does precipitation affect water levels across Estonian river catchments?
-- How do sunny days (sunshine hours) affect water levels?
-- Which rivers respond most strongly and most quickly to rainfall events?
+- How do environmental factors affect water level fluctuations at monitoring stations?
+- Which environmental factors have the strongest impact on water level changes?
 
 ---
 
@@ -29,7 +28,7 @@ This project was built as a hands-on training exercise in data engineering, with
 - Docker and Docker Compose installed
 - Git
 - A `.env` file configured from `.env.example` (passwords, secrets, DB credentials)
-- ~12 GB RAM and ~16 GB disk available on the host
+- ~16 GB RAM and ~60 GB disk available on the host
 
 ### Installing
 
@@ -86,7 +85,7 @@ Key endpoints:
 | `GET /v1/observations/meteo` | Meteo observations |
 | `GET /health` | Health check |
 
-Rate limited to 60 requests/minute per IP. No authentication required.
+>Global rate limited to 60 requests/minute. No authentication required.
 
 For full parameter documentation see [`docs/runbook/fastapi_runbook.md`](docs/runbook/fastapi_runbook.md).
 
@@ -229,7 +228,7 @@ Database authentication uses `POSTGRES_HOST_AUTH_METHOD=md5` for both PostgreSQL
 
 The source code in this repository is available under the [MIT License](LICENSE).
 
-Data used in this project is sourced from the Estonian Environment Agency (Keskkonnaagentuur) and is published under the [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) licence. Attribution: Keskkonnaagentuur, [keskkonnaportaal.ee](https://www.keskkonnaportaal.ee).
+Data used in this project is sourced from the Estonian Environment Agency and is published under the [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) licence. Attribution: Keskkonnaagentuur, [keskkonnaportaal.ee](https://www.keskkonnaportaal.ee).
 
 ---
 
