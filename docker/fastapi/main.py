@@ -30,7 +30,7 @@ DB_USER     = os.getenv("ANALYTICS_DB_USER", "analytics")
 DB_PASSWORD = os.getenv("ANALYTICS_DB_PASSWORD", "")
 
 RATE_LIMIT    = os.getenv("RATE_LIMIT", "60/minute")
-DEFAULT_LIMIT = 5  # rows returned when no filters provided
+DEFAULT_LIMIT = 3  # rows returned when no filters provided
 
 # ---------------------------------------------------------------------------
 # API content — Estonian
@@ -180,7 +180,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Eesti Hydro-Meteo API",
     description=APP_DESCRIPTION,
-    version="2.1.1",
+    version="2.2.1",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
@@ -364,13 +364,25 @@ DOCS_HTML = """<!DOCTYPE html>
       padding: 0 !important;
     }
 
-    /* ── Version / OAS badges — dark text so they're readable ── */
+    /* ── Version / OAS badges — small blue pills ── */
     .swagger-ui .info .version,
     .swagger-ui .info .version-stamp {
-      color: #374151 !important;
+      color: #ffffff !important;
+      background: #2563eb !important;
+      font-size: 0.7em !important;
+      padding: 2px 8px !important;
+      border-radius: 4px !important;
+      font-weight: 600 !important;
+      vertical-align: middle !important;
     }
     .swagger-ui .info hgroup.main a span {
-      color: #374151 !important;
+      color: #ffffff !important;
+      background: #2563eb !important;
+      font-size: 0.7em !important;
+      padding: 2px 8px !important;
+      border-radius: 4px !important;
+      font-weight: 600 !important;
+      vertical-align: middle !important;
     }
   </style>
 </head>
