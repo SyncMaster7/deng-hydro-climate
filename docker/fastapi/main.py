@@ -4,6 +4,7 @@ FastAPI + asyncpg + slowapi rate limiter
 Swagger UI at /docs
 """
 
+import asyncio
 import json
 import os
 import time
@@ -37,6 +38,8 @@ DEFAULT_LIMIT = 3  # rows returned when no filters provided
 # ---------------------------------------------------------------------------
 
 APP_DESCRIPTION = (
+    "---\n\n"
+    "**Versioon:** 2.3.0 &nbsp;|&nbsp; **OpenAPI:** 3.1\n\n"
     "---\n\n"
     "## Ülevaade\n\n"
     "Eesti Hydro-Meteo API pakub avalikku ja struktureeritud juurdepääsu Eesti hüdroloogilistele ja "
@@ -80,7 +83,7 @@ APP_DESCRIPTION = (
     "---\n\n"
     "## Päringud\n\n"
     "Päringute koostamisel on soovitatav kasutada ajavahemiku filtreerimise parameetreid `from_ts` ja `to_ts`. "
-    "Kui päringu koostamisel filtreid ei määrata, tagastab API vaikimisi kuni 5 viimast mõõtmist "
+    "Kui päringu koostamisel filtreid ei määrata, tagastab API vaikimisi 3 rida "
     "viimasel saadaoleval ajatemplil.\n\n"
     "API toetab paindlikku filtreerimist:\n"
     "- seirejaam\n"
@@ -128,14 +131,14 @@ CONTENT = {
     "obs_hydro": (
         "Hüdroloogilised vaatlused filtreeritud jaama, seirenäitaja ja ajavahemiku järgi. "
         "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
-        "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
+        "**Vaikimisi (filtrid puuduvad):** tagastab 3 rida viimasel saadaoleval ajatemplil.\n"
         "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
     ),
     "obs_hydro_latest": "Iga jaama ja seirenäitaja koodi viimane vaatlus. Kasulik näidikulaua hetkeseisu kuvamiseks.",
     "obs_meteo": (
         "Meteoroloogilised vaatlused filtreeritud jaama, seirenäitaja ja ajavahemiku järgi. "
         "Kõik ajatemplid on Eesti kohalikus ajas (EET/EEST).\n\n"
-        "**Vaikimisi (filtrid puuduvad):** tagastab 5 rida viimasel saadaoleval ajatemplil.\n"
+        "**Vaikimisi (filtrid puuduvad):** tagastab 3 rida viimasel saadaoleval ajatemplil.\n"
         "**Filtritega:** tagastab kuni `limit` rida, järjestatud `obs_ts` kahanevas järjekorras."
     ),
     "param_station_code_hydro": "Komaga eraldatud jaama koodid, nt 41061,26227",
@@ -180,7 +183,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Eesti Hydro-Meteo API",
     description=APP_DESCRIPTION,
-    version="2.2.1",
+    version="2.3.0",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
@@ -198,8 +201,29 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# Request logging middleware — writes to monitoring.request_log after response
+# Request logging — background helper + middleware
 # ---------------------------------------------------------------------------
+
+async def _write_request_log(pool, method, path, query_params, status_code, elapsed_ms, client_ip):
+    """Write a single request log entry — runs as a background task."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO monitoring.request_log
+                    (method, endpoint, query_params, status_code, response_ms, client_ip)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                """,
+                method,
+                path,
+                json.dumps(query_params) if query_params else None,
+                status_code,
+                elapsed_ms,
+                client_ip,
+            )
+    except Exception:
+        pass  # Never let logging failure affect the response
+
 
 @app.middleware("http")
 async def log_request(request: Request, call_next):
@@ -213,28 +237,21 @@ async def log_request(request: Request, call_next):
     if request.url.path in skip:
         return response
 
-    try:
-        query_params = dict(request.query_params) or None
-        client_ip = (
-            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-            or request.client.host
-        )
-        async with request.app.state.pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO monitoring.request_log
-                    (method, endpoint, query_params, status_code, response_ms, client_ip)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                """,
-                request.method,
-                request.url.path,
-                json.dumps(query_params) if query_params else None,
-                response.status_code,
-                elapsed_ms,
-                client_ip,
-            )
-    except Exception:
-        pass  # Never let logging failure affect the response
+    query_params = dict(request.query_params) or None
+    client_ip = (
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or request.client.host
+    )
+
+    asyncio.create_task(_write_request_log(
+        request.app.state.pool,
+        request.method,
+        request.url.path,
+        query_params,
+        response.status_code,
+        elapsed_ms,
+        client_ip,
+    ))
 
     return response
 
@@ -364,25 +381,18 @@ DOCS_HTML = """<!DOCTYPE html>
       padding: 0 !important;
     }
 
-    /* ── Version / OAS badges — small blue pills ── */
+    /* ── Hide version and OAS badges ── */
     .swagger-ui .info .version,
-    .swagger-ui .info .version-stamp {
-      color: #ffffff !important;
-      background: #2563eb !important;
-      font-size: 0.7em !important;
-      padding: 2px 8px !important;
-      border-radius: 4px !important;
-      font-weight: 600 !important;
-      vertical-align: middle !important;
-    }
+    .swagger-ui .info .version-stamp,
     .swagger-ui .info hgroup.main a span {
-      color: #ffffff !important;
-      background: #2563eb !important;
-      font-size: 0.7em !important;
-      padding: 2px 8px !important;
-      border-radius: 4px !important;
-      font-weight: 600 !important;
-      vertical-align: middle !important;
+      display: none !important;
+    }
+
+    /* ── OpenAPI JSON link — dark readable text ── */
+    .swagger-ui .info hgroup.main a {
+      color: #374151 !important;
+      font-size: 0.75em !important;
+      font-weight: 500 !important;
     }
   </style>
 </head>
