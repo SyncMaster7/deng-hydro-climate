@@ -120,9 +120,9 @@ Null rida — bronze kihis pole ühtegi duplikaati. See on tagatud nii andmebaas
 
 **Näidikulaud**
 
-Superset näidikulaud on kättesaadav aadressil `https://superset.deng.ee` — kuvab pipeline'i monitooringut ja vaatlusandmeid. Allpool on ekraanipilt töötavast näidikulauast.
+Superset monitooringuarmatuurlaud (pipeline'i seire): [superset.deng.ee](https://superset.deng.ee)
 
-> *[Lisa siia ekraanipilt Superset näidikulauast]*
+Tableau analüüsiarmatuurlaud (veetasemed ja seosed): [Vaata Tableau Public'us](https://public.tableau.com/app/profile/thea.milder5692/viz/deng_ee/Veetasemedjaseosed)
 
 ---
 
