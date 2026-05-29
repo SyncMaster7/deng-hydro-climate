@@ -719,7 +719,7 @@ services:
     volumes:
       - ckan-storage-data:/var/lib/ckan
     healthcheck:
-      test: ["CMD-SHELL", "curl -sS --fail http://localhost:5000/api/3/action/status_show"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/3/action/status_show')"]
       interval: 30s
       timeout: 10s
       retries: 5
