@@ -22,22 +22,24 @@ Kuidas mõjutavad sademed ja õhutemperatuur veetaseme kõikumisi seirejaamades 
 ## Andmevoog
 
 ```mermaid
-flowchart LR
-    A[Hüdroloogia API] --> B[Sissevõtt]
+flowchart TD
+    A[Hüdroloogia API] --> B[Toomine]
     C[Meteoroloogia API] --> B
-    D[Jaamade CSV] --> E[Ref-andmed]
-    B --> F[(Bronze)]
-    E --> G[dbt]
-    F --> G
-    G --> H[(Silver / Gold)]
-    H --> I[Tableau]
-    H --> J[DataHub]
-    H --> K[FastAPI]
-    L[Apache Airflow] --> B
-    L --> G
+    B --> D[Laadimine]
+    E[Jaamade CSV] --> F[Ref-andmed]
+    D --> G[(Bronze)]
+    F --> H
+
+    G --> H[dbt: Silver\npuhastamine ja pivot]
+    H --> I[dbt: Gold\nhüdro + meteo ühendamine]
+    I --> J[dbt: API kiht\nserveerimiseks]
+    I --> K[Tableau]
+    I --> L[Superset]
+    I --> M[DataHub]
+    J --> N[FastAPI\napi.deng.ee]
 ```
 
-> Igapäevane pipeline käivitatakse automaatselt kell 06:00 UTC. Andmete toomine, laadimine ja dbt transformatsioon toimuvad järjestikku. Kõik etapid logitakse `bronze.etl_log` tabelisse.
+> Igapäevane pipeline käivitatakse automaatselt kell 06:00 UTC. Andmete toomine ja laadimine on Airflow ülesanded — dbt transformatsioon käivitatakse pipeline'i viimase sammuna. Kõik etapid logitakse `bronze.etl_log` tabelisse.
 
 ## Andmebaasi kihid
 
@@ -47,6 +49,8 @@ flowchart LR
 | `bronze` | API toorvastus — täpselt nii nagu API tagastas, ilma transformatsioonita. UPSERT unikaalsuspiiranguga. Sisaldab ka `etl_log` pipeline'i logitabelit. |
 | `silver` | dbt mudelid — puhastatud, pivoteeritud laiade ridadena (üks rida jaama ja tunni kohta). EH2000 kõrgusparandus rakendatud hüdroandmetele. |
 | `gold` | dbt mudelid — hüdro ühendatud lähima meteojaamaga (proximity_rank=1). Analüüsivalmis, Eesti kohaliku ajaga (`observation_ts_local`). |
+| `api` | dbt mudelid — avaliku REST API serveerimiskiht. Fakt/dimensioon disain, eraldatud gold kihist. |
+| `monitoring` | API kasutuslogid — iga avaliku päringu logi vastusaja, staatuskoodi ja kliendi IP-ga. |
 
 ### Peamised tabelid
 
@@ -61,6 +65,9 @@ flowchart LR
 | `silver.hydro` | Pivot laiaks — `wl_avg`, `wl_min`, `wl_max`, `wl_avg_eh2000` (EH2000 absoluutkõrgus meetrites), `wt_avg`, `discharge_avg` jm |
 | `silver.meteo` | Pivot laiaks — `precipitation_mm`, `temp_avg`, `wind_speed_ms`, `sunshine_duration_min` jm |
 | `gold.hydro_meteo` | Hüdro + meteo ühendatult, `observation_ts_local` Eesti ajas, analüüsi jaoks |
+| `api.observations_hydro` | Hüdro mõõtmised pikk-formaadis — 1 rida jaama, ajatempli ja elemendi kohta |
+| `api.observations_meteo` | Meteo mõõtmised pikk-formaadis — 1 rida jaama, ajatempli ja elemendi kohta |
+| `monitoring.request_log` | Avaliku API kasutuslogid — vastusaeg, staatuskood, kliendi IP |
 
 ## Orkestreerimine
 
@@ -139,7 +146,7 @@ Testid on jaotatud kuude andmekvaliteedi dimensiooni järgi:
 
 ## Privaatsus ja turve
 
-Projekt ei sisalda isikuandmeid. Kõik andmed on avalikud keskkonnaseire mõõtmised (jõed, ilm) Keskkonnaagentuuri API-st.
+Projekt ei sisalda isikuandmeid. Kõik andmed on avalikud keskkonnaseire mõõtmised (jõed, ilm) Keskkonnaagentuuri API-st. Andmed on avaldatud CC BY 4.0 litsentsi alusel.
 
 Turvameetmed:
 - Kõik paroolid ja võtmed on `.env` failis, mida ei tohi GitHubi panna (`.gitignore`-s)
