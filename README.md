@@ -1,139 +1,105 @@
-# Eesti hüdroloogilise seire andmetorustik
+# Estonian Hydrological Monitoring Pipeline
 
-## Äriküsimus
+A production-like data engineering pipeline for monitoring Estonian river and climate conditions. The system ingests hourly hydrological and meteorological observations from the Estonian Environment Agency, transforms them through a bronze → silver → gold → api dbt architecture, and exposes the data via a public REST API and internal dashboards.
 
-Kuidas mõjutavad sademed ja õhutemperatuur veetaseme kõikumisi seirejaamades ning millised keskkonnategurid (õhutemperatuur, sademed) avaldavad veetaseme muutusele kõige tugevamat mõju?
+Built on a self-hosted Dell PowerEdge T640 server running Docker on Ubuntu 24.04. Data is sourced from the Estonian Environment Agency ([Keskkonnaagentuur](https://www.keskkonnaportaal.ee)) via the open environmental data API at [keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee).
 
-**Mõõdikud:**
+### Synopsis
 
-1. Veetase (cm) hüdromeetriajaamade kaupa — keskmine, miinimum, maksimum tunni kohta
-2. Sademete hulk (mm) ja õhutemperatuur lähima meteoroloogijaama järgi
+deng-hydro-climate is a full-stack data engineering project that automates the daily collection, transformation, and serving of environmental monitoring data. It covers 76 hydrometric stations and 25 meteorological stations across Estonia, with data going back to 2025-01-01.
 
-## Arhitektuur
+### Motivation
 
-```mermaid
-flowchart LR
-    A[Hüdroloogia API] --> B[Sissevõtt]
-    C[Meteoroloogia API] --> B
-    D[Jaamade CSV] --> E[Ref-andmed]
-    B --> F[(Bronze)]
-    E --> G[dbt]
-    F --> G
-    G --> H[(Silver / Gold)]
-    H --> I[Tableau]
-    H --> J[DataHub]
-    H --> K[FastAPI]
-```
+This project was built as a hands-on training exercise in data engineering, with the goal of applying production patterns — orchestration, data quality testing, metadata cataloguing, and public API delivery — to a real-world environmental dataset. The data source is the Estonian Environment Agency's open API; the business questions driving the analysis are about the relationship between precipitation, temperature, and river water levels across Estonian catchments.
 
-Täpsem kirjeldus: [`docs/arhitektuur.md`](docs/arhitektuur.md)
+---
 
-## Andmestik
+## Business Questions
 
-| Allikas | Tüüp | Ajas muutuv? | Roll |
-|---------|------|--------------|------|
-| Hüdroloogia API (`f_hydroseire`) | REST API (PostgREST) | Jah, tunnipõhine (~43h viivitus) | Veetase, temperatuur, äravool — 76 jaama |
-| Meteoroloogia API (`f_kliima_tund`) | REST API (PostgREST) | Jah, iga päev (pakettöötlus ~05:01 EET) | Sademed, temperatuur, tuul, lumikate — 25 jaama |
-| Hüdromeetria jaamad (`seeds/hydrometric_stations.csv`) | CSV / seed | Ei, staatiline | 76 jaama metaandmed koos kõrgusega MSL |
-| Meteoroloogia jaamad (`seeds/meteorological_stations.csv`) | CSV / seed | Ei, staatiline | 25 jaama metaandmed |
-| Seirejaamade vahekaugus | Automaatselt genereeritud (Haversine) | Ei (uuendatakse jaamade muutumise korral) | 3 lähimat meteojaam iga hüdrojaama kohta |
+- How does precipitation affect water levels across Estonian river catchments?
+- How do sunny days (sunshine hours) affect water levels?
+- Which rivers respond most strongly and most quickly to rainfall events?
 
-## Tehnoloogiavirn (stack)
+---
 
-| Komponent | Tööriist | Versioon | RAM | Ketas |
-|-----------|---------|---------|-----|-------|
-| Orkestreerimine | Apache Airflow (TaskFlow API) | 3.2.1 | ~2 GB | ~1 GB |
-| Transformatsioon | dbt Core + dbt-utils | 1.9.x | ~256 MB | ~256 MB |
-| Andmehoidla | PostgreSQL analytics-db (pgduckdb) | 16 | ~2 GB | ~10 GB |
-| Andmehoidla | PostgreSQL airflow-db + superset-db | 16 | ~512 MB | ~512 MB |
-| Näidikulaud | Tableau | — | — | — |
-| Näidikulaud | Apache Superset | 6.0.1 | ~1 GB | ~512 MB |
-| Andmekataloog | DataHub | head (latest) | ~6 GB | ~3 GB |
-| Avalik REST API | FastAPI + asyncpg + slowapi | 0.115.6 | ~256 MB | ~256 MB |
-| Toordata + arhiiv | /data/raw + /data/archive | — | — | ~1 GB |
-| Konteinerimine | Docker Compose | — | — | — |
-| Keel | Python 3 | 3.12 | — | — |
-| Versioonikontroll | Git / GitHub | — | — | — |
-| **Kokku** | | | **~12 GB** | **~16 GB** |
+## Getting Started
 
-> Mõõdetud Dell PowerEdge T640, Ubuntu 24.04, täieliku backfilliga (alates 2025-01-01). Analytics-db ketta kasutus kasvab koos andmemahuga. DataHub domineerib RAM-i kasutuses — OpenSearch ja GMS moodustavad suurema osa ~6 GB-st.
+### Prerequisites
 
-## Käivitamine
+- Docker and Docker Compose installed
+- Git
+- A `.env` file configured from `.env.example` (passwords, secrets, DB credentials)
+- ~12 GB RAM and ~16 GB disk available on the host
+
+### Installing
 
 ```bash
-# 1. Klooni repo ja liigu kausta
+# 1. Clone the repository
 git clone https://github.com/SyncMaster7/deng-hydro-climate.git
 cd deng-hydro-climate
 
-# 2. Kopeeri keskkonnamuutujad
+# 2. Configure environment variables
 cp .env.example .env
-# Muuda .env failis paroolid ja muud seaded vastavalt vajadusele
+# Edit .env — set all passwords, secrets, and connection strings
 
-# 3. Käivita teenused
+# 3. Start all services
 docker compose up -d --build
 
-# 4. Installi dbt paketid
+# 4. Install dbt packages
 docker exec -it deng-dbt dbt deps \
   --project-dir /dbt \
   --profiles-dir /dbt
 
-# 5. Käivita seed DAG (jaamade andmed ja läheduse arvutus)
-# Airflow UI-s: käivita käsitsi seed_stations DAG
+# 5. Load station reference data
+# In Airflow UI — trigger seed_stations DAG manually
+# This loads hydrometric and meteorological station CSVs and calculates station proximity pairs
 ```
 
-**Teenuste aadressid:**
+After the seed DAG completes, the daily pipeline (`hydro_meteo_pipeline`) will run automatically at 06:00 UTC and begin populating data. For historical backfill, Airflow's `catchup=True` handles this automatically from `start_date`.
 
-| Teenus | Avalik URL | Lokaalne arendus |
-|--------|-----------|-----------------|
+---
+
+## Service URLs
+
+| Service | Public URL | Local |
+|---|---|---|
 | Airflow UI | https://airflow.deng.ee | http://localhost:8080 |
 | Superset | https://superset.deng.ee | http://localhost:8088 |
 | DataHub | https://datahub.deng.ee | http://localhost:9002 |
 | FastAPI / Swagger | https://api.deng.ee/docs | http://localhost:8000/docs |
 
-## Saladused ja konfiguratsioon
+---
 
-Kõik saladused (paroolid, API võtmed, andmebaasi URL-id) on `.env` failis. Repos on ainult `.env.example`, mis näitab vajalike muutujate struktuuri ilma tegelike väärtusteta. Päris `.env` faili ei tohi GitHubi panna — see on `.gitignore`-s.
+## API Reference
 
-## Andmevoog lühidalt
+The public REST API is available at `https://api.deng.ee`. Full interactive documentation is at `https://api.deng.ee/docs`.
 
-1. **Toomine** — `fetch_hydro` ja `fetch_meteo` tõmbavad Keskkonnaagentuuri API-st tunnipõhised andmed (viivitus ~43h) ja salvestavad JSON-failidena `/data/raw/` alla
-2. **Laadimine** — `ingest_hydro` ja `ingest_meteo` loevad JSON-failid, teevad UPSERT `bronze` skeemi (`bronze.hydro`, `bronze.meteo`)
-3. **Transformatsioon** — `run_dbt` käivitab `dbt build`: `silver` kiht puhastab ja teisendab laiaks, `gold` kiht ühendab hüdro- ja meteoandmed lähima jaama järgi
-4. **Testimine** — `dbt build` käivitab automaatselt 26 andmekvaliteedi testi bronze kihi vastu (16 geneerist + 10 singulaarset); ebaõnnestumine peatab silver/gold/api mudelite ehitamise
-5. **Väljund** — Tableau ühendub otse andmebaasiga (`gold` kiht) ja kuvab veetaseme ning ilmaandmete analüüsi; FastAPI (`api.deng.ee`) publitseerib andmed avaliku REST API kaudu
+Key endpoints:
 
-## Andmekvaliteedi testid
+| Endpoint | Description |
+|---|---|
+| `GET /v1/stations/hydro` | All 76 hydrometric stations |
+| `GET /v1/stations/meteo` | All 25 meteorological stations |
+| `GET /v1/elements` | All measurement element codes |
+| `GET /v1/observations/hydro` | Hydro observations (filter by station, element, date range) |
+| `GET /v1/observations/hydro/latest` | Latest observation per station per element |
+| `GET /v1/observations/meteo` | Meteo observations |
+| `GET /health` | Health check |
 
-dbt käivitab 26 testi iga `dbt build` jooksul automaatselt. Kõik testid on bronze kihi vastu — silver, gold ja api mudelid ehitatakse ainult siis, kui kõik testid läbivad.
+Rate limited to 60 requests/minute per IP. No authentication required.
 
-**Geneerilised testid (16)** — defineeritud `models/sources/sources.yml`:
+For full parameter documentation see [`docs/runbook/fastapi_runbook.md`](docs/runbook/fastapi_runbook.md).
 
-| Tabel | Test | Veerud |
-|-------|------|--------|
-| `bronze.hydro` | `not_null` | `jaam_kood`, `timeline_ts_utc`, `timeline_ts_local`, `aegrida_nimi`, `loaded_at` |
-| `bronze.hydro` | `accepted_values` | `aegrida_nimi` — 9 teadaolevat mõõtmistüüpi |
-| `bronze.hydro` | `unique_combination_of_columns` | `(jaam_kood, timeline_ts_utc, aegrida_nimi)` |
-| `bronze.meteo` | `not_null` | `jaam_kood`, `aasta`, `kuu`, `paev`, `tund`, `element_kood`, `loaded_at` |
-| `bronze.meteo` | `accepted_values` | `element_kood` — 10 teadaolevat elemendi koodi |
-| `bronze.meteo` | `unique_combination_of_columns` | `(jaam_kood, aasta, kuu, paev, tund, element_kood)` |
+---
 
-**Singulaarset testid (10)** — defineeritud `tests/`:
+## Data Quality Tests
 
-| Test | Kirjeldus |
-|------|-----------|
-| `bronze_hydro_wl_range` | Veetase vahemikus -100 kuni 1500 cm |
-| `bronze_hydro_wt_range` | Veetemperatuur vahemikus -5 kuni 35°C |
-| `bronze_hydro_discharge_range` | Äravool vahemikus -300 kuni 15 000 m³/s (negatiivsed väärtused lubatud rannikujaamades) |
-| `bronze_hydro_no_future_timestamps` | `timeline_ts_utc` ei tohi olla tulevikus |
-| `bronze_meteo_temperature_range` | Õhutemperatuur (TA, TAN1H, TAX1H) vahemikus -40 kuni 35°C |
-| `bronze_meteo_precipitation_non_negative` | Sademed (PR1H) ≥ 0 mm |
-| `bronze_meteo_humidity_range` | Suhteline niiskus (RH) vahemikus 0 kuni 100% |
-| `bronze_meteo_pressure_range` | Õhurõhk (PA0) vahemikus 950 kuni 1060 hPa |
-| `bronze_meteo_wind_speed_non_negative` | Tuule kiirus (WS10M, WSX1H) ≥ 0 m/s |
-| `bronze_meteo_tund_range` | Tund vahemikus 0 kuni 23 |
+dbt runs 26 automated tests on every `dbt build` — all targeting the bronze layer. A test failure (severity: `error`) halts all downstream model builds, preventing bad data from reaching silver, gold, and api layers.
 
-> SDUR1H (päikesepaiste kestus) on bronze kihis teadlikult testimata — allikast pärinevad negatiivsed väärtused on teadaolev sensorikalibreerimise artefakt ning säilitatakse bronze'is täpse sisselaadimise põhimõttel.
+Tests are split into 16 generic tests (defined in `models/sources/sources.yml`) covering nullability, accepted values, and uniqueness, and 10 singular tests (defined in `tests/`) covering physical value ranges for water level, water temperature, discharge, air temperature, precipitation, humidity, pressure, wind speed, and hour-of-day format.
 
-Testide käivitamine käsitsi:
+Run tests manually:
+
 ```bash
 docker exec -it deng-dbt dbt test \
   --select source:bronze \
@@ -143,7 +109,50 @@ docker exec -it deng-dbt dbt test \
   --target-path /tmp/dbt_target
 ```
 
-## Projekti struktuur
+Full test documentation is in [`docs/architecture.md`](docs/architecture.md).
+
+---
+
+## Built With
+
+| Component | Tool | Version | RAM | Disk |
+|---|---|---|---|---|
+| Orchestration | Apache Airflow (TaskFlow API) | 3.2.1 | ~3 GB | ~2 GB |
+| Transformation | dbt Core + dbt-utils | 1.9.x | ~512 MB | ~512 MB |
+| Database | PostgreSQL + pgduckdb (analytics-db) | 16 | ~3 GB | ~5 GB |
+| Database | PostgreSQL (airflow-db + superset-db) | 16 | ~1 GB | ~200 MB |
+| Dashboards | Apache Superset | 6.0.1 | ~1.5 GB | ~1 GB |
+| Dashboards | Tableau | — | — | — |
+| Data Catalogue | DataHub | latest (head) | ~8 GB | ~5 GB |
+| Public API | FastAPI + asyncpg + slowapi | 0.115.6 | ~512 MB | ~512 MB |
+| Raw data + archive | /data/raw + /data/archive | — | — | ~200 MB |
+| Docker images | /var/lib/docker (active images) | — | — | ~28 GB |
+| Docker build cache | /var/lib/docker (reclaimable) | — | — | ~8 GB |
+| Language | Python 3 | 3.12 | — | — |
+| Version control | Git / GitHub | — | — | — |
+| **Total (recommended minimum)** | | | **~16 GB** | **~60 GB** |
+
+> Recommended minimums include headroom for stable operation. Measured on Dell PowerEdge T640, Ubuntu 24.04, with full backfill from 2025-01-01: total RAM in use is ~6.8 GB active + ~3.3 GB swap on an 11 GB VM — the system runs but is memory-constrained, making 16 GB a genuine minimum. Disk: 54 GB used on a 98 GB volume, with Docker images (~28 GB active) as the largest single consumer. Analytics-db data volume is currently ~4.6 GB and will grow over time. Build cache (~8 GB) is fully reclaimable via `docker builder prune`.
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | Full architecture deep-dive — data model, pipeline design, EH2000 correction, data quality tests |
+| [`docs/progress.md`](docs/progress.md) | Current project status, known gaps, and next steps |
+| [`docs/runbook/datahub_runbook.md`](docs/runbook/datahub_runbook.md) | DataHub — normal restart, full rebuild, ingestion sources, troubleshooting |
+| [`docs/runbook/airflow_runbook.md`](docs/runbook/airflow_runbook.md) | Airflow — DAG reference, restart, DB access, debugging |
+| [`docs/runbook/dbt_runbook.md`](docs/runbook/dbt_runbook.md) | dbt — build commands, full-refresh, snapshots, tests |
+| [`docs/runbook/fastapi_runbook.md`](docs/runbook/fastapi_runbook.md) | FastAPI — endpoints, query parameters, restart, monitoring |
+| [`docs/runbook/superset_runbook.md`](docs/runbook/superset_runbook.md) | Superset — restart, rebuild, users, DB connection |
+
+Academic documentation (Estonian): [`docs/school/`](docs/school/)
+
+---
+
+## Repository Structure
 
 ```
 .
@@ -152,93 +161,84 @@ docker exec -it deng-dbt dbt test \
 ├── .env.example
 ├── .gitignore
 ├── dags/
-│   ├── hydro_meteo_pipeline.py         ← põhiline igapäevane pipeline
-│   ├── seed_stations.py                ← jaamade seemneandmed ja läheduse arvutus
-│   ├── archive_raw_files.py            ← nädalane arhiveerimine
-│   └── datahub_refresh_dbt_metadata.py ← DataHub dbt metaandmete uuendamine
+│   ├── hydro_meteo_pipeline.py       ← daily pipeline (fetch → ingest → dbt)
+│   ├── seed_stations.py              ← station reference data + proximity calculation
+│   └── archive_raw_files.py          ← weekly raw file compression and archival
 ├── dbt_project/
 │   ├── dbt_project.yml
-│   ├── packages.yml                    ← dbt-utils pakett (composite unique testid)
+│   ├── packages.yml                  ← dbt-utils dependency
 │   ├── profiles.yml
 │   ├── macros/
 │   │   └── generate_schema_name.sql
 │   ├── models/
-│   │   ├── api/                        ← FastAPI serveerimiskiht (5 mudelit)
+│   │   ├── api/                      ← FastAPI serving layer (5 models)
 │   │   ├── gold/
 │   │   │   └── hydro_meteo.sql
 │   │   ├── silver/
 │   │   │   ├── hydro.sql
 │   │   │   └── meteo.sql
 │   │   └── sources/
-│   │       └── sources.yml             ← allikad + geneerilised testid
+│   │       └── sources.yml           ← source definitions + generic tests
 │   ├── snapshots/
 │   │   ├── snap_hydro_stations.sql
 │   │   └── snap_meteo_stations.sql
-│   └── tests/                          ← singulaarset testid (10 faili)
-│       ├── bronze_hydro_wl_range.sql
-│       ├── bronze_hydro_wt_range.sql
-│       ├── bronze_hydro_discharge_range.sql
-│       ├── bronze_hydro_no_future_timestamps.sql
-│       ├── bronze_meteo_temperature_range.sql
-│       ├── bronze_meteo_precipitation_non_negative.sql
-│       ├── bronze_meteo_humidity_range.sql
-│       ├── bronze_meteo_pressure_range.sql
-│       ├── bronze_meteo_wind_speed_non_negative.sql
-│       └── bronze_meteo_tund_range.sql
+│   └── tests/                        ← singular tests (10 SQL files)
 ├── docker/
 │   ├── airflow/
-│   │   └── Dockerfile
 │   ├── datahub-actions/
-│   │   └── Dockerfile
 │   ├── fastapi/
-│   │   ├── Dockerfile
-│   │   ├── main.py
-│   │   └── requirements.txt
 │   └── superset/
-│       ├── Dockerfile
-│       └── superset_config.py
 ├── datahub/
-│   ├── artifacts/                      ← dbt artefaktid DataHubi jaoks
-│   └── recipes/                        ← DataHub ingestion retseptid
-│       ├── dbt_recipe.yml
-│       ├── postgres_recipe.yml
-│       └── superset_recipe.yml
+│   ├── artifacts/                    ← dbt artifacts for DataHub lineage
+│   ├── glossary/                     ← glossary reference files
+│   └── recipes/                      ← ingestion recipe references
 ├── docs/
-│   └── arhitektuur.md
+│   ├── architecture.md
+│   ├── progress.md
+│   ├── runbook/
+│   │   ├── datahub_runbook.md
+│   │   ├── airflow_runbook.md
+│   │   ├── dbt_runbook.md
+│   │   ├── fastapi_runbook.md
+│   │   └── superset_runbook.md
+│   └── school/                       ← Estonian academic documentation
+│       ├── arhitektuur.md
+│       └── progress.md
 ├── ingestion/
-│   └── haversine.py                    ← kauguse arvutus
+│   └── haversine.py
 ├── seeds/
 │   ├── hydrometric_stations.csv
 │   ├── meteorological_stations.csv
 │   └── station_proximity.csv
 └── sql/
     ├── create_tables.sql
-    └── migrate_etl_log.sql
+    └── migrate_monitoring.sql
 ```
 
-## Kokkuvõte, puudused ja võimalikud edasiarendused
+---
 
-**Kokkuvõte:**
-- Täielik andmetorustik hüdro- ja meteoandmete igapäevaseks töötluseks on töökorras
-- Backfill kaetud alates 2025-01-01 — ~7,8M rida hüdro ja ~2,9M rida meteo andmeid
-- Superset dashboard on avaldatud kolme graafikuga
-- DataHub andmekataloog toimib: PostgreSQL, dbt, Superset ja Airflow ingestion lõpetatud
-- dbt andmekvaliteedi testid rakendatud bronze kihile — 26 testi, kõik läbitud
+## Security and Configuration
 
-**Puudused:**
-- dbt testid katvad ainult bronze kihti — silver, gold ja api kihid testimata
+All secrets (passwords, API keys, DB credentials) are stored in `.env`, which is listed in `.gitignore` and never committed to the repository. Only `.env.example` is tracked — it shows the required variable structure without real values.
 
-**Mis edasi:**
-- dbt testid silver, gold ja api kihtidele
-- DataHub metaandmete rikastamine (DCAT-AP joondus)
-- Tableau näidikulaud täiendamine
+Database authentication uses `POSTGRES_HOST_AUTH_METHOD=md5` for both PostgreSQL services. This project contains no personal data — all data is publicly available environmental monitoring measurements from the Estonian Environment Agency.
 
-## Meeskond
+---
 
-| Nimi | Pädevused | Panus projekti |
-|------|-----------|----------------|
-| Thea | Projektikoordineerimine, armatuurlaudade arendus, suhtlus huvigruppidega | Projektijuhtimine ja ajakava koordineerimine; analüütiliste armatuurlaudade ja visualiseerimislahenduste loomine ärikasutajatele Tableau keskkonnas |
-| Kairi | Uurimisprojektid, metodoloogia, analüüs ja dokumentatsioon | Projekti struktuur, dokumentatsioon, metodoloogiline lähenemine ja nõuete analüüs; arendustegevuste vastavuse tagamine selgetele ja mõõdetavatele eesmärkidele |
-| Anny | Ärianalüütik, rakenduse juht | DataHub platvormi haldus ja administreerimine; äriloogika, andmekirjelduste ja sõnastike koostamine ning DataHub sisu ajakohastamine |
-| Aivo | Andmehaldus, andmejuhtimine, metaandmete haldus | Andmehalduse protsesside, metaandmete standardite ja andmekvaliteedi põhimõtete kujundamine; DataHub lahenduse kasutuselevõtt ja haldus |
-| Kermo | Tehniline infrastruktuur, backend-süsteemid, Python arendus | Infrastruktuuri ja backend-lahenduste ülesehitamine: serverid, Docker, Airflow orkestreerimine, Python automatiseerimine, dbt ja DataHub integratsioonid |
+## Licence
+
+The source code in this repository is available under the [MIT License](LICENSE).
+
+Data used in this project is sourced from the Estonian Environment Agency (Keskkonnaagentuur) and is published under the [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) licence. Attribution: Keskkonnaagentuur, [keskkonnaportaal.ee](https://www.keskkonnaportaal.ee).
+
+---
+
+## Project Team
+
+| Name | Role | Contribution |
+|---|---|---|
+| Thea | Project coordination, dashboard development | Project management and scheduling; Tableau dashboards for business users |
+| Kairi | Research, methodology, documentation | Project structure, documentation, requirements analysis |
+| Anny | Business analyst, application lead | DataHub administration; business glossary and data descriptions |
+| Aivo | Data governance, metadata management | Data governance processes, metadata standards, DataHub setup |
+| Kermo | Technical infrastructure, backend, Python | Server, Docker, Airflow orchestration, Python automation, dbt, DataHub integrations |
