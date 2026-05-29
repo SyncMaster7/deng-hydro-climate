@@ -6,7 +6,7 @@
 
 - [x] Docker Compose käivitab kõik teenused
 - [x] Andmeid saadakse allikast kätte
-- [x] Andmed laetakse `staging` kihti
+- [x] Andmed laetakse `bronze` kihti
 - [x] Vähemalt üks transformatsioon toimib
 - [x] Vähemalt üks näidikulaud on nähtaval
 - [x] Vähemalt üks andmekvaliteedi test läbib
@@ -95,7 +95,7 @@ Tegelik tulemus:
 
 Oodatav tulemus: kuupäev, mis on tänasest ~3 päeva tagasi (API avaldamise viivituse tõttu).
 
-**4. Bronzekihis pole duplikaate**
+**4. Bronze kihis pole duplikaate**
 
 ```bash
 docker exec -it deng-analytics-db psql -U analytics -d hydro_climate_db -c \
@@ -122,7 +122,7 @@ Null rida — bronze kihis pole ühtegi duplikaati. See on tagatud nii andmebaas
 
 Superset monitooringuarmatuurlaud (pipeline'i seire): [superset.deng.ee](https://superset.deng.ee)
 
-Tableau analüüsiarmatuurlaud (veetasemed ja seosed): [Vaata Tableau Public'us](https://public.tableau.com/app/profile/thea.milder5692/viz/deng_ee/Veetasemedjaseosed)
+Tableau analüüsi näidikulaud (veetasemed ja seosed): [Vaata Tableau Public'us](https://public.tableau.com/app/profile/thea.milder5692/viz/deng_ee/Veetasemedjaseosed)
 
 ---
 
