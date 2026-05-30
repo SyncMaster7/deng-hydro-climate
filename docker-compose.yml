@@ -734,6 +734,8 @@ services:
       CKANEXT__DCAT__DEFAULT_CATALOG_ENDPOINT: "/catalog.{_format}"
       # Spatial — solr backend (no PostGIS required)
       CKANEXT__SPATIAL__SEARCH_BACKEND: "solr-bbox"
+      CKAN__CORS__ORIGIN_ALLOW_ALL: "false"
+      CKAN__CORS__ORIGIN_WHITELIST: "https://catalogue.deng.ee"
     volumes:
       - ckan-storage-data:/var/lib/ckan
     healthcheck:
