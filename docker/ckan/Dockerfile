@@ -5,7 +5,9 @@ USER root
 RUN pip install --no-cache-dir \
     ckanext-hierarchy \
     ckanext-dcat \
-    ckanext-scheming \
+    ckanext-scheming
+
+RUN pip install --no-cache-dir -e \
     "git+https://github.com/ckan/ckanext-spatial.git#egg=ckanext-spatial"
 
 USER ckan
