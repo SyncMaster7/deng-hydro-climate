@@ -500,8 +500,7 @@ services:
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
       GRAPH_SERVICE_IMPL: elasticsearch
-      METADATA_SERVICE_AUTH_ENABLED: "false"
-      AUTHENTICATION_TOKEN_ENABLED: "true"
+      METADATA_SERVICE_AUTH_ENABLED: "true"
       MAE_CONSUMER_ENABLED: "true"
       MCE_CONSUMER_ENABLED: "true"
       PE_CONSUMER_ENABLED: "true"
@@ -548,7 +547,7 @@ services:
       SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
       METADATA_AUDIT_EVENT_NAME: MetadataAuditEvent_v4
       METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME: MetadataChangeLog_Versioned_v1
-      METADATA_SERVICE_AUTH_ENABLED: "false"
+      METADATA_SERVICE_AUTH_ENABLED: "true"
       ELASTICSEARCH_HOST: datahub-opensearch
       ELASTICSEARCH_PORT: "9200"
       ELASTICSEARCH_PROTOCOL: http
@@ -583,7 +582,7 @@ services:
       AUTH_SESSION_TTL_HOURS: "24"
       MAX_SESSION_TOKEN_AGE: 24h
       THEME_V2_DEFAULT: "true"
-      METADATA_SERVICE_AUTH_ENABLED: "false"
+      METADATA_SERVICE_AUTH_ENABLED: "true"
       JAVA_OPTS: >-
         -Xms512m -Xmx512m
         -Dhttp.port=9002
