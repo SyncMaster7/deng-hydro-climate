@@ -720,8 +720,8 @@ services:
       CKAN_SECRET_KEY: ${CKAN_SECRET_KEY}
       TZ: "Europe/Tallinn"
       # Locale — Estonian default, English offered
-      CKAN__LOCALE_DEFAULT: "et"
-      CKAN__LOCALES_OFFERED: "et en"
+      CKAN__LOCALE_DEFAULT: "en"
+      CKAN__LOCALES_OFFERED: "en et"
       CKAN__DISPLAY_TIMEZONE: "Europe/Tallinn"
       # Default licence — CC BY 4.0
       CKAN__DEFAULT_DATASET_LICENCE: "cc-by"
