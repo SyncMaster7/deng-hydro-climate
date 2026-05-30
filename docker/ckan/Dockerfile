@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir \
     ckanext-hierarchy \
     ckanext-dcat \
     ckanext-scheming \
+    geojson \
     "git+https://github.com/ckan/ckanext-spatial.git#egg=ckanext-spatial"
 
 USER ckan
