@@ -689,9 +689,10 @@ services:
   # ---------------------------------------------------------------------------
   # CKAN — open data catalogue application
   # Exposed on 5000, reverse-proxied via Caddy at ckan.deng.ee
+  # Extensions: hierarchy, dcat (DCAT-AP 3), scheming, spatial
   # ---------------------------------------------------------------------------
   ckan:
-    image: ckan/ckan-base:2.11.4
+    build: ./docker/ckan
     container_name: deng-ckan
     restart: unless-stopped
     depends_on:
@@ -710,12 +711,30 @@ services:
       CKAN_REDIS_URL: redis://ckan-redis:6379/1
       CKAN_SITE_URL: https://ckan.deng.ee
       CKAN_SITE_TITLE: "DENG Hydro-Climate Open Data"
+      CKAN__SITE_DESCRIPTION: "Hydrological and meteorological open data from Estonian monitoring stations, published by Keskkonnaagenuur."
+      CKAN__SITE_INTRO_TEXT: "Open access to water level, discharge, and climate observations across Estonia."
       CKAN__AUTH__CREATE_USER_VIA_WEB: "false"
       CKAN_SYSADMIN_NAME: ${CKAN_ADMIN_USER}
       CKAN_SYSADMIN_PASSWORD: ${CKAN_ADMIN_PASSWORD}
       CKAN_SYSADMIN_EMAIL: ${CKAN_ADMIN_EMAIL}
       CKAN_SECRET_KEY: ${CKAN_SECRET_KEY}
       TZ: "Europe/Tallinn"
+      # Locale — Estonian default, English offered
+      CKAN__LOCALE_DEFAULT: "et"
+      CKAN__LOCALES_OFFERED: "et en"
+      CKAN__DISPLAY_TIMEZONE: "Europe/Tallinn"
+      # Default licence — CC BY 4.0
+      CKAN__DEFAULT_DATASET_LICENCE: "cc-by"
+      # Plugins — order matters per ckanext-dcat docs
+      CKAN__PLUGINS: "image_view text_view datatables_view datastore envvars spatial dcat scheming_datasets hierarchy_display hierarchy_form"
+      # Scheming — built-in full DCAT-AP schema from ckanext-dcat (no local file needed)
+      CKAN__SCHEMING__DATASET_SCHEMAS: "ckanext.dcat.schemas:dcat_ap_full.yaml"
+      CKAN__SCHEMING__PRESETS: "ckanext.scheming:presets.json ckanext.dcat.schemas:presets.yaml"
+      # DCAT-AP 3 profile
+      CKANEXT__DCAT__RDF_PROFILES: "euro_dcat_ap_3"
+      CKANEXT__DCAT__DEFAULT_CATALOG_ENDPOINT: "/catalog.{_format}"
+      # Spatial — solr backend (no PostGIS required)
+      CKANEXT__SPATIAL__SEARCH_BACKEND: "solr"
     volumes:
       - ckan-storage-data:/var/lib/ckan
     healthcheck:
