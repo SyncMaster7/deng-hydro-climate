@@ -726,7 +726,7 @@ services:
       # Default licence — CC BY 4.0
       CKAN__DEFAULT_DATASET_LICENCE: "cc-by"
       # Plugins — order matters per ckanext-dcat docs
-      CKAN__PLUGINS: "image_view text_view datatables_view datastore envvars spatial_metadata spatial_query dcat scheming_datasets hierarchy_display hierarchy_form"      # Scheming — built-in full DCAT-AP schema from ckanext-dcat (no local file needed)
+      CKAN__PLUGINS: "image_view text_view datatables_view datastore spatial_metadata spatial_query dcat scheming_datasets hierarchy_display hierarchy_form envvars"
       CKAN___SCHEMING__DATASET_SCHEMAS: "ckanext.dcat.schemas:dcat_ap_full.yaml"
       CKAN___SCHEMING__PRESETS: "ckanext.scheming:presets.json ckanext.dcat.schemas:presets.yaml"
       # DCAT-AP 3 profile
