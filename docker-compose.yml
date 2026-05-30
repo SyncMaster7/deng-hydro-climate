@@ -733,7 +733,7 @@ services:
       CKANEXT__DCAT__RDF_PROFILES: "euro_dcat_ap_3"
       CKANEXT__DCAT__DEFAULT_CATALOG_ENDPOINT: "/catalog.{_format}"
       # Spatial — solr backend (no PostGIS required)
-      CKANEXT__SPATIAL__SEARCH_BACKEND: "solr"
+      CKANEXT__SPATIAL__SEARCH_BACKEND: "solr-bbox"
     volumes:
       - ckan-storage-data:/var/lib/ckan
     healthcheck:
