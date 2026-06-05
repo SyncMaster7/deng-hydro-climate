@@ -315,7 +315,7 @@ FastAPI service running in `deng-fastapi`, publicly accessible at `https://api.d
 | `to_ts` | ISO 8601 datetime | End of observation window |
 | `limit` | integer 1–50000 | Default 10000 |
 
-> The default query window is last 24 hours. Due to `API_LAG_DAYS=3`, freshest data is ~3 days old — consumers should always pass explicit `from_ts`/`to_ts` or use the `/latest` endpoint.
+> When no `from_ts`/`to_ts` is specified, the API returns the latest available data. Because `API_LAG_DAYS=3`, the freshest data is typically ~3 days old. Use the `/latest` endpoint for the single most recent observation per station per element.
 
 ### Technical Details
 
@@ -471,4 +471,4 @@ Security measures:
 
 ---
 
-*deng-hydro-climate — architecture.md — last updated 2026-05-29*
+*deng-hydro-climate — architecture.md — last updated 2026-06-05*
