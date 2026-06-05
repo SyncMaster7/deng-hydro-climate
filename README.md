@@ -1,6 +1,6 @@
 # Estonian Hydrological Monitoring Pipeline
 
-A production-like data engineering pipeline for analyzing how environmental factors like air temperature, percipitation etc affect water level fluctuations at monitoring stations, and which factors have the strongest impact on water level changes. The system ingests hourly hydrological and meteorological observations from the Estonian Environment Agency, transforms them through a medallion architecture, and exposes the data via a public Tableau dashboard and public REST API.
+A production-like data engineering pipeline for analyzing how environmental factors like air temperature, precipitation etc affect water level fluctuations at monitoring stations, and which factors have the strongest impact on water level changes. The system ingests hourly hydrological and meteorological observations from the Estonian Environment Agency, transforms them through a medallion architecture, and exposes the data via a public Tableau dashboard and public REST API.
 
 Built on a self-hosted Dell PowerEdge T640 server running Docker on Ubuntu 24.04. Data is sourced from the [Estonian Environment Agency](https://keskkonnaagentuur.ee/en) via the open environmental data API at [keskkonnaandmed.envir.ee](https://keskkonnaandmed.envir.ee).
 
@@ -66,6 +66,8 @@ After the seed DAG completes, the daily pipeline (`hydro_meteo_pipeline`) will r
 | Superset | https://superset.deng.ee | http://localhost:8088 |
 | DataHub | https://datahub.deng.ee | http://localhost:9002 |
 | FastAPI / Swagger | https://api.deng.ee/docs | http://localhost:8000/docs |
+| CKAN catalogue | https://ckan.deng.ee | http://localhost:5000 |
+| Public catalogue frontend | https://catalogue.deng.ee | — |
 
 ---
 
@@ -114,22 +116,23 @@ Full test documentation is in [`docs/architecture.md`](docs/architecture.md).
 
 ## Built With
 
-| Component | Tool | Version | RAM | Disk |
-|---|---|---|---|---|
-| Orchestration | Apache Airflow (TaskFlow API) | 3.2.1 | ~3 GB | ~2 GB |
-| Transformation | dbt Core + dbt-utils | 1.9.x | ~512 MB | ~512 MB |
-| Database | PostgreSQL + pgduckdb (analytics-db) | 16 | ~3 GB | ~5 GB |
-| Database | PostgreSQL (airflow-db + superset-db) | 16 | ~1 GB | ~200 MB |
-| Dashboards | Apache Superset | 6.0.1 | ~1.5 GB | ~1 GB |
-| Dashboards | Tableau | — | — | — |
-| Data Catalogue | DataHub | latest (head) | ~8 GB | ~5 GB |
-| Public API | FastAPI + asyncpg + slowapi | 0.115.6 | ~512 MB | ~512 MB |
-| Raw data + archive | /data/raw + /data/archive | — | — | ~200 MB |
-| Docker images | /var/lib/docker (active images) | — | — | ~28 GB |
-| Docker build cache | /var/lib/docker (reclaimable) | — | — | ~8 GB |
-| Language | Python 3 | 3.12 | — | — |
-| Version control | Git / GitHub | — | — | — |
-| **Total (recommended minimum)** | | | **~16 GB** | **~60 GB** |
+| Component | Tool | Version | RAM        | Disk |
+|---|---|---|------------|---|
+| Orchestration | Apache Airflow (TaskFlow API) | 3.2.1 | ~3 GB      | ~2 GB |
+| Transformation | dbt Core + dbt-utils | 1.9.x | ~512 MB    | ~512 MB |
+| Database | PostgreSQL + pgduckdb (analytics-db) | 16 | ~3 GB      | ~5 GB |
+| Database | PostgreSQL (airflow-db + superset-db) | 16 | ~1 GB      | ~200 MB |
+| Dashboards | Apache Superset | 6.0.1 | ~1.5 GB    | ~1 GB |
+| Dashboards | Tableau | — | —          | — |
+| Data Catalogue | DataHub | latest (head) | ~8 GB      | ~5 GB |
+| Public Catalogue | CKAN | 2.11.4 | ~1 GB      | ~1 GB |
+| Public API | FastAPI + asyncpg + slowapi | 0.115.6 | ~512 MB    | ~512 MB |
+| Raw data + archive | /data/raw + /data/archive | — | —          | ~200 MB |
+| Docker images | /var/lib/docker (active images) | — | —          | ~28 GB |
+| Docker build cache | /var/lib/docker (reclaimable) | — | —          | ~8 GB |
+| Language | Python 3 | 3.12 | —          | — |
+| Version control | Git / GitHub | — | —          | — |
+| **Total (recommended minimum)** | | | **~24 GB** | **~60 GB** |
 
 > Recommended minimums include headroom for stable operation. Measured on Dell PowerEdge T640, Ubuntu 24.04, with full backfill from 2025-01-01: total RAM in use is ~6.8 GB active + ~3.3 GB swap on an 11 GB VM — the system runs but is memory-constrained, making 16 GB a genuine minimum. Disk: 54 GB used on a 98 GB volume, with Docker images (~28 GB active) as the largest single consumer. Analytics-db data volume is currently ~4.6 GB and will grow over time. Build cache (~8 GB) is fully reclaimable via `docker builder prune`.
 
@@ -184,6 +187,7 @@ Academic documentation (Estonian): [`docs/school/`](docs/school/)
 │   └── tests/                        ← singular tests (10 SQL files)
 ├── docker/
 │   ├── airflow/
+│   ├── ckan/                         ← custom CKAN Dockerfile (pip extensions)
 │   ├── datahub-actions/
 │   ├── fastapi/
 │   └── superset/
